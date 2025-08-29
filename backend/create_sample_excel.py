@@ -64,7 +64,7 @@ def create_sample_excel():
         
         ['CASE010', 'Risk Advisory', 'Risk Management', 'Operational Risk', 'Compliance Risk',
          '2024-03-01', '2024-03-10', 'BANK010', 'ADV005', '', 'Resolved',
-         'Risk Advisory', 'Compliance', 9.0, 'Risk Advisory', 'Risk', 'Australia',
+         'Risk Advisory', 'Compliance', 9.0, 'Risk Advisory', 'Risk', 'Australia',tus
          'Risk Assessment', 75.0, 18.0, 'Operational risk framework for logistics company']
     ]
     
