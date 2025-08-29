@@ -40,7 +40,7 @@ app.include_router(excel_upload_router)
 @app.get("/")
 async def root():
     return {
-        "message": "AdvisorConnect GenAI v2 API",
+        "message": "AdvisorConnectAPI",
         "version": "2.0.0",
         "docs": "/docs"
     }

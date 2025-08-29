@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Starting AdvisorConnect GenAI v2..."
+echo "🚀 Starting AdvisorConnect..."
 
 # Check if Python and Node.js are installed
 if ! command -v python3 &> /dev/null; then

@@ -1,4 +1,4 @@
-# AdvisorConnect GenAI v2 - Hackathon POC
+# AdvisorConnect GenAI - Hackathon POC
 
 A comprehensive AI-powered advisor matching system that dynamically profiles advisors and intelligently matches them to cases based on expertise, performance, and domain knowledge.
 

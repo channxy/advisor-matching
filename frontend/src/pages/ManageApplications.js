@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -33,10 +33,11 @@ import {
   CheckCircle,
   Cancel,
 } from '@mui/icons-material';
-import { casesAPI } from '../services/api';
+import { casesAPI, assignmentsAPI } from '../services/api';
 
 function ManageApplications() {
   const navigate = useNavigate();
+  const { advisorId } = useParams();
   const [cases, setCases] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,7 +53,7 @@ function ManageApplications() {
 
   const fetchCases = async () => {
     try {
-      const response = await casesAPI.getCases({ page: 1, size: 50 });
+      const response = await casesAPI.getAdvisorCases(advisorId || 'ADV001', { page: 1, size: 50 });
       setCases(response.data.cases);
     } catch (error) {
       console.error('Error fetching cases:', error);
@@ -73,12 +74,26 @@ function ManageApplications() {
     if (!selectedCase) return;
 
     try {
+      console.log('Starting action:', actionType);
+      console.log('Case ID:', selectedCase.case_id);
+      console.log('Advisor ID:', advisorId || 'ADV001');
+      
       if (actionType === 'accept') {
-        // Handle accept action
-        console.log('Accepting case:', selectedCase.case_id);
+        // Accept the case
+        console.log('Calling acceptCase API...');
+        const response = await assignmentsAPI.acceptCase(selectedCase.case_id, advisorId || 'ADV001');
+        console.log('Accept response:', response);
+        console.log('Case accepted successfully');
       } else if (actionType === 'decline') {
-        // Handle decline action
-        console.log('Declining case:', selectedCase.case_id, 'Reason:', declineReason);
+        // Decline the case
+        if (!declineReason.trim()) {
+          alert('Please provide a reason for declining the case');
+          return;
+        }
+        console.log('Calling declineCase API...');
+        const response = await assignmentsAPI.declineCase(selectedCase.case_id, advisorId || 'ADV001', declineReason);
+        console.log('Decline response:', response);
+        console.log('Case declined successfully');
       }
       
       setActionDialog(false);
@@ -88,6 +103,10 @@ function ManageApplications() {
       fetchCases(); // Refresh the list
     } catch (error) {
       console.error('Error performing action:', error);
+      console.error('Error details:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error URL:', error.config?.url);
+      alert('Failed to perform action: ' + error.message);
     }
   };
 
@@ -126,7 +145,7 @@ function ManageApplications() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold' }}>
-        Manage Applications
+        My Cases - {advisorId || 'ADV001'}
       </Typography>
 
       {/* Filters */}
@@ -174,6 +193,8 @@ function ManageApplications() {
                 <TableRow>
                   <TableCell>Case ID</TableCell>
                   <TableCell>Status</TableCell>
+                  <TableCell>Assignment</TableCell>
+                  <TableCell>Match %</TableCell>
                   <TableCell>Topic</TableCell>
                   <TableCell>Subtopic</TableCell>
                   <TableCell>Date Created</TableCell>
@@ -196,6 +217,21 @@ function ManageApplications() {
                         color={getStatusColor(case_item.status)}
                         size="small"
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={case_item.assignment_status || 'N/A'}
+                        color={case_item.assignment_status === 'accepted' ? 'success' : 
+                               case_item.assignment_status === 'declined' ? 'error' : 
+                               case_item.assignment_status === 'pending' ? 'warning' : 'default'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        {case_item.matching_score ? `${case_item.matching_score.toFixed(1)}%` : 'N/A'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
@@ -235,7 +271,7 @@ function ManageApplications() {
                             <Visibility />
                           </IconButton>
                         </Tooltip>
-                        {case_item.status === 'pending' && (
+                        {case_item.assignment_status === 'pending' && (
                           <>
                             <Tooltip title="Accept Case">
                               <IconButton

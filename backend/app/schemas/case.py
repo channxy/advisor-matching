@@ -38,8 +38,33 @@ class CaseResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class AssignedAdvisor(BaseModel):
+    advisor_id: Optional[str] = None
+    advisor_name: Optional[str] = None
+
+class CaseWithAssignmentResponse(BaseModel):
+    id: int
+    case_id: str
+    topic: str
+    subtopic: str
+    query: str
+    status: str
+    complexity: float
+    casetype: Optional[str]
+    transaction_type: Optional[str]
+    business_function: Optional[str]
+    country: Optional[str]
+    date_created: Optional[str]
+    date_resolved: Optional[str]
+    resolution_time: Optional[float]
+    domain_relevance: float
+    classification_confidence: float
+    assigned_advisor: Optional[AssignedAdvisor] = None
+    assignment_status: Optional[str] = None
+    matching_score: Optional[float] = None
+
 class CaseListResponse(BaseModel):
-    cases: List[CaseResponse]
+    cases: List[CaseWithAssignmentResponse]
     total: int
     page: int
     size: int

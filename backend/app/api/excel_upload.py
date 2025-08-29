@@ -10,12 +10,14 @@ import pandas as pd
 from ..models.database import get_db
 from ..services.excel_processor import ExcelProcessor
 from ..services.ml_service import MLAdvisorService
+from ..services.matching_service import MatchingService
 
 router = APIRouter(prefix="/api/v1", tags=["excel-upload"])
 
 # Initialize services
 excel_processor = ExcelProcessor()
 ml_service = MLAdvisorService()
+matching_service = MatchingService()
 
 @router.post("/upload-excel")
 async def upload_excel_file(
@@ -69,8 +71,57 @@ async def get_advisor_recommendations(
             if field not in case_data or not case_data[field]:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
         
-        # Get recommendations
-        recommendations = ml_service.recommend_advisors(case_data, db)
+        # Get recommendations using both ML service and matching service
+        ml_recommendations = ml_service.recommend_advisors(case_data, db)
+        
+        # Also get recommendations using matching service for comparison
+        # Create a temporary case object for matching service
+        from ..models import Case
+        temp_case = Case(
+            topic=case_data.get('topic', ''),
+            subtopic=case_data.get('subtopic', ''),
+            query=case_data.get('query', ''),
+            complexity=float(case_data.get('complexity', 50.0)),
+            business_function=case_data.get('business_function', ''),
+            country=case_data.get('country', '')
+        )
+        
+        matching_recommendations = await matching_service.find_best_advisors(temp_case, db)
+        
+        # Combine and prioritize recommendations
+        recommendations = []
+        
+        # Add ML recommendations first
+        for rec in ml_recommendations:
+            recommendations.append({
+                'advisor_id': rec['advisor_id'],
+                'advisor_name': rec['advisor_name'],
+                'confidence': rec['confidence'],
+                'expertise_tags': rec['expertise_tags'],
+                'success_rate': rec['success_rate'],
+                'total_cases': rec['total_cases'],
+                'source': 'ML Model'
+            })
+        
+        # Add matching service recommendations
+        for rec in matching_recommendations:
+            advisor = rec['advisor']
+            # Check if already in recommendations
+            if not any(r['advisor_id'] == advisor.advisor_id for r in recommendations):
+                recommendations.append({
+                    'advisor_id': advisor.advisor_id,
+                    'advisor_name': advisor.advisor_name,
+                    'confidence': rec['score'] / 100,  # Convert to 0-1 scale
+                    'expertise_tags': advisor.expertise_tags,
+                    'success_rate': advisor.success_rate,
+                    'total_cases': advisor.total_cases_handled,
+                    'source': 'Matching Service',
+                    'insights': rec['insights']
+                })
+        
+        # Sort by confidence and take top 3
+        recommendations.sort(key=lambda x: x['confidence'], reverse=True)
+        recommendations = recommendations[:3]
         
         return {
             "success": True,

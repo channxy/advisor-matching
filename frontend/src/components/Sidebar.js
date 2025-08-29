@@ -51,8 +51,30 @@ const menuItems = [
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Extract advisor ID from current URL or use default
+  const getAdvisorId = () => {
+    const pathParts = location.pathname.split('/');
+    if (pathParts.includes('dashboard') && pathParts[pathParts.indexOf('dashboard') + 1]) {
+      return pathParts[pathParts.indexOf('dashboard') + 1];
+    }
+    if (pathParts.includes('applications') && pathParts[pathParts.indexOf('applications') + 1]) {
+      return pathParts[pathParts.indexOf('applications') + 1];
+    }
+    return 'ADV001'; // Default advisor ID
+  };
+  
+  const advisorId = getAdvisorId();
+  
   const handleListItemClick = (index, path) => {
-    navigate(path);
+    // Add advisor ID to advisor-specific paths
+    if (path === '/applications') {
+      navigate(`/applications/${advisorId}`);
+    } else if (path === '/') {
+      navigate(`/dashboard/${advisorId}`);
+    } else {
+      navigate(path);
+    }
   };
 
   return (
@@ -73,7 +95,7 @@ function Sidebar() {
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
           AdvisorConnect
         </Typography>
-        <Chip 
+        {/* <Chip 
           label="GenAI v2" 
           size="small" 
           sx={{ 
@@ -81,7 +103,7 @@ function Sidebar() {
             color: 'white',
             fontSize: '0.75rem'
           }} 
-        />
+        /> */}
       </Box>
       
       <Divider sx={{ backgroundColor: '#334155' }} />
@@ -96,7 +118,11 @@ function Sidebar() {
         {menuItems.filter(item => item.category === 'advisor').map((item, index) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
-              selected={location.pathname === item.path}
+              selected={
+                (item.path === '/' && location.pathname.startsWith('/dashboard')) ||
+                (item.path === '/applications' && location.pathname.startsWith('/applications')) ||
+                (item.path !== '/' && item.path !== '/applications' && location.pathname === item.path)
+              }
               onClick={() => handleListItemClick(index, item.path)}
               sx={{
                 borderRadius: 2,

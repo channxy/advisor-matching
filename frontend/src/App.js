@@ -12,6 +12,7 @@ import CaseDetail from './pages/CaseDetail';
 import AdminCases from './pages/AdminCases';
 import AdvisorProfiles from './pages/AdvisorProfiles';
 import AdvisorDetail from './pages/AdvisorDetail';
+import TestCaseDetail from './pages/TestCaseDetail';
 
 const theme = createTheme({
   palette: {
@@ -49,11 +50,12 @@ function App() {
             <Routes>
               <Route path="/" element={<AdvisorDashboard />} />
               <Route path="/dashboard/:advisorId" element={<AdvisorDashboard />} />
-              <Route path="/applications" element={<ManageApplications />} />
+              <Route path="/applications/:advisorId" element={<ManageApplications />} />
               <Route path="/case/:caseId" element={<CaseDetail />} />
               <Route path="/admin/cases" element={<AdminCases />} />
               <Route path="/admin/advisors" element={<AdvisorProfiles />} />
               <Route path="/admin/advisor/:advisorId" element={<AdvisorDetail />} />
+              <Route path="/test-case-detail" element={<TestCaseDetail />} />
             </Routes>
           </Box>
         </Box>

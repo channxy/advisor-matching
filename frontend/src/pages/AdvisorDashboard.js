@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -30,6 +30,7 @@ import { advisorsAPI } from '../services/api';
 
 function AdvisorDashboard() {
   const { advisorId } = useParams();
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,6 +68,10 @@ function AdvisorDashboard() {
   }
 
   const { advisor, incoming_cases, resolved_cases, performance_metrics, tags } = dashboardData;
+
+  const handleCaseClick = (caseId) => {
+    navigate(`/case/${caseId}`);
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -221,7 +226,12 @@ function AdvisorDashboard() {
                   </TableHead>
                   <TableBody>
                     {incoming_cases.map((case_item, index) => (
-                      <TableRow key={index} hover>
+                      <TableRow 
+                        key={index} 
+                        hover 
+                        onClick={() => handleCaseClick(case_item.case_id)}
+                        sx={{ cursor: 'pointer' }}
+                      >
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold">
                             {case_item.case_id}
@@ -275,7 +285,12 @@ function AdvisorDashboard() {
                   </TableHead>
                   <TableBody>
                     {resolved_cases.map((case_item, index) => (
-                      <TableRow key={index} hover>
+                      <TableRow 
+                        key={index} 
+                        hover 
+                        onClick={() => handleCaseClick(case_item.case_id)}
+                        sx={{ cursor: 'pointer' }}
+                      >
                         <TableCell>
                           <Typography variant="body2" fontWeight="bold">
                             {case_item.case_id}

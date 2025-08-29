@@ -29,12 +29,17 @@ import {
   Visibility,
   Add,
   Refresh,
+  CloudUpload,
 } from '@mui/icons-material';
 import { casesAPI } from '../services/api';
+import IntegratedCaseSubmission from '../components/IntegratedCaseSubmission';
+import ExcelUpload from '../components/ExcelUpload';
 
 function AdminCases() {
   const navigate = useNavigate();
   const [cases, setCases] = useState([]);
+  const [showCaseSubmission, setShowCaseSubmission] = useState(false);
+  const [showExcelUpload, setShowExcelUpload] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -128,9 +133,16 @@ function AdminCases() {
             Refresh
           </Button>
           <Button
+            variant="outlined"
+            startIcon={<CloudUpload />}
+            onClick={() => setShowExcelUpload(true)}
+          >
+            Upload Excel
+          </Button>
+          <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => navigate('/case/new')}
+            onClick={() => setShowCaseSubmission(true)}
           >
             New Case
           </Button>
@@ -246,7 +258,12 @@ function AdminCases() {
               </TableHead>
               <TableBody>
                 {filteredCases.map((case_item) => (
-                  <TableRow key={case_item.case_id} hover>
+                  <TableRow 
+                    key={case_item.case_id} 
+                    hover 
+                    onClick={() => handleViewCase(case_item.case_id)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <TableCell>
                       <Typography variant="body2" fontWeight="bold">
                         {case_item.case_id}
@@ -271,7 +288,7 @@ function AdminCases() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        {case_item.status === 'assigned' || case_item.status === 'in_progress' ? 'ADV001' : 'Unassigned'}
+                        {case_item.assigned_advisor ? case_item.assigned_advisor.advisor_name : 'Unassigned'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -296,7 +313,10 @@ function AdminCases() {
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
-                          onClick={() => handleViewCase(case_item.case_id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewCase(case_item.case_id);
+                          }}
                         >
                           <Visibility />
                         </IconButton>
@@ -309,6 +329,25 @@ function AdminCases() {
           </TableContainer>
         </CardContent>
       </Card>
+
+      {/* Integrated Components */}
+      <IntegratedCaseSubmission
+        open={showCaseSubmission}
+        onClose={() => setShowCaseSubmission(false)}
+        onSuccess={(newCase) => {
+          setShowCaseSubmission(false);
+          fetchCases(); // Refresh the cases list
+        }}
+      />
+
+      <ExcelUpload
+        open={showExcelUpload}
+        onClose={() => setShowExcelUpload(false)}
+        onSuccess={(result) => {
+          setShowExcelUpload(false);
+          fetchCases(); // Refresh the cases list
+        }}
+      />
     </Box>
   );
 }

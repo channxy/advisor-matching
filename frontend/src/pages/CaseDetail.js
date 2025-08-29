@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -36,27 +36,41 @@ function CaseDetail() {
   const [caseData, setCaseData] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [actionDialog, setActionDialog] = useState(false);
   const [actionType, setActionType] = useState('');
   const [declineReason, setDeclineReason] = useState('');
 
   const fetchCaseData = useCallback(async () => {
+    if (!caseId) {
+      setError('No case ID provided');
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('Fetching case data for:', caseId);
       const [caseResponse, assignmentsResponse] = await Promise.all([
         casesAPI.getCase(caseId),
         assignmentsAPI.getCaseAssignments(caseId)
       ]);
       
+      console.log('Case response:', caseResponse.data);
+      console.log('Assignments response:', assignmentsResponse.data);
+      
       setCaseData(caseResponse.data);
       setAssignments(assignmentsResponse.data.assignments || []);
     } catch (error) {
       console.error('Error fetching case data:', error);
+      setError('Failed to load case data: ' + error.message);
     } finally {
       setLoading(false);
     }
   }, [caseId]);
 
-
+  useEffect(() => {
+    fetchCaseData();
+  }, [fetchCaseData]);
 
   const handleAction = (type) => {
     setActionType(type);
@@ -65,18 +79,27 @@ function CaseDetail() {
 
   const handleConfirmAction = async () => {
     try {
+      // Get the advisor ID from the first assignment
+      const advisorId = assignments.length > 0 ? assignments[0].advisor_id : 'ADV001';
+      
       if (actionType === 'accept') {
-        await assignmentsAPI.acceptCase(caseId, 'ADV001'); // Using default advisor for demo
+        const response = await assignmentsAPI.acceptCase(caseId, advisorId);
+        console.log('Case accepted:', response.data);
       } else if (actionType === 'decline') {
-        await assignmentsAPI.declineCase(caseId, 'ADV001', declineReason);
+        const response = await assignmentsAPI.declineCase(caseId, advisorId, declineReason);
+        console.log('Case declined:', response.data);
       }
       
       setActionDialog(false);
       setActionType('');
       setDeclineReason('');
-      fetchCaseData(); // Refresh data
+      
+      // Refresh case data to show updated status
+      await fetchCaseData();
+      
     } catch (error) {
       console.error('Error performing action:', error);
+      setError('Failed to perform action: ' + error.message);
     }
   };
 
@@ -106,6 +129,22 @@ function CaseDetail() {
     return (
       <Box sx={{ p: 3 }}>
         <LinearProgress />
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          Loading case details...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          {error}
+        </Alert>
+        <Button onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+          Go Back
+        </Button>
       </Box>
     );
   }
@@ -116,6 +155,9 @@ function CaseDetail() {
         <Alert severity="error">
           Case not found
         </Alert>
+        <Button onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+          Go Back
+        </Button>
       </Box>
     );
   }
@@ -254,7 +296,7 @@ function CaseDetail() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
-                Assignments
+                Assignments ({assignments.length})
               </Typography>
               
               {assignments.length === 0 ? (
@@ -269,7 +311,7 @@ function CaseDetail() {
                         <Assignment />
                       </Avatar>
                       <Typography variant="body2" fontWeight="bold">
-                        Advisor {assignment.advisor_id}
+                        {assignment.advisor_name || `Advisor ${assignment.advisor_id}`}
                       </Typography>
                     </Box>
                     <Chip
@@ -278,9 +320,14 @@ function CaseDetail() {
                       color={assignment.matching_score >= 90 ? 'success' : 'primary'}
                       sx={{ mb: 1 }}
                     />
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                       {assignment.matching_insights}
                     </Typography>
+                    {assignment.advisor_expertise && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        <strong>Expertise:</strong> {assignment.advisor_expertise}
+                      </Typography>
+                    )}
                   </Box>
                 ))
               )}
@@ -298,27 +345,24 @@ function CaseDetail() {
           <Typography variant="body1" sx={{ mb: 2 }}>
             Are you sure you want to {actionType} this case?
           </Typography>
-          
           {actionType === 'decline' && (
             <TextField
               fullWidth
-              label="Reason for declining"
-              multiline
-              rows={3}
+              label="Decline Reason"
               value={declineReason}
               onChange={(e) => setDeclineReason(e.target.value)}
-              required
+              multiline
+              rows={3}
               sx={{ mt: 2 }}
             />
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setActionDialog(false)}>Cancel</Button>
-          <Button
-            onClick={handleConfirmAction}
+          <Button 
+            onClick={handleConfirmAction} 
             variant="contained"
             color={actionType === 'accept' ? 'success' : 'error'}
-            disabled={actionType === 'decline' && !declineReason.trim()}
           >
             {actionType === 'accept' ? 'Accept' : 'Decline'}
           </Button>
