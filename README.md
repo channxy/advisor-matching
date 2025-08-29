@@ -49,6 +49,13 @@ git clone <repository-url> && cd advisor-matching && ./start.sh
 ./start.sh
 ```
 
+### 🏆 Hackathon Edition
+For the ML Advisor Matching hackathon system, see [HACKATHON_README.md](HACKATHON_README.md) for:
+- Excel upload and ML model training
+- Advisor recommendation API
+- Inbox simulation
+- Complete hackathon requirements implementation
+
 ### Manual Setup (Alternative)
 ```bash
 # Set OpenAI API key (optional)
@@ -103,9 +110,48 @@ cd frontend && npm install && npm start
 - `GET /advisor/{id}` - Get advisor profile
 - `GET /dashboard/advisor/{id}` - Get advisor dashboard data
 
-## 📊 Sample Data
+## 📊 Data Import
 
-The application includes sample data for:
+### Using Your Excel Transaction Data
+
+The application can import your real transaction data from Excel to create AI-powered advisor profiles:
+
+```bash
+# Import your Excel data
+cd backend
+python import_data.py your_transaction_data.xlsx
+```
+
+### Expected Excel Columns:
+- `case_id`: Unique case identifier
+- `case_owner`: Advisor who handled the case
+- `advisor_name`: Name of the advisor
+- `topic`: Main topic of the case
+- `subtopic`: Sub-topic of the case
+- `query/description`: Case description or query
+- `casetype`: Type of case
+- `transaction_type`: Type of transaction
+- `business_function`: Business function area
+- `department`: Department
+- `current_advisory_group`: Current advisory group
+- `previous_advisory_group`: Previous advisory group
+- `country`: Country
+- `status`: Case status (resolved, pending, etc.)
+- `date_created`: When case was created
+- `date_resolved`: When case was resolved
+- `resolution_time`: Time to resolve in days
+- `complexity`: Case complexity (0-100)
+- `previous_advisor`: Previous advisor if transferred
+
+### What the AI System Learns:
+- **Advisor Profiles**: Generated from historical transaction data
+- **Expertise Tags**: Created from actual case topics and subtopics
+- **Performance Metrics**: Calculated from resolution times and success rates
+- **Matching Patterns**: Based on real advisor-case assignments
+- **Transfer Patterns**: Learning from case transfer history
+
+### Sample Data (Fallback)
+If you don't have Excel data, the application includes sample data for:
 - 10 advisors across different departments and countries
 - 50+ historical cases with various topics and complexity levels
 - Transfer patterns and performance metrics

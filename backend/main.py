@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import Base, engine
 from app.api import cases_router, advisors_router, assignments_router
+from app.api.excel_upload import router as excel_upload_router
+from app.startup import initialize_database
 import os
 from dotenv import load_dotenv
 
@@ -10,6 +12,9 @@ load_dotenv()
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Initialize database with sample data if empty
+initialize_database()
 
 app = FastAPI(
     title="AdvisorConnect GenAI v2",
@@ -30,6 +35,7 @@ app.add_middleware(
 app.include_router(cases_router)
 app.include_router(advisors_router)
 app.include_router(assignments_router)
+app.include_router(excel_upload_router)
 
 @app.get("/")
 async def root():

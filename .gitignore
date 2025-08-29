@@ -221,7 +221,6 @@ dist
 
 # Gatsby files
 .cache/
-# public  # Commented out to allow React public folder
 
 # Vuepress build output
 .vuepress/dist
@@ -253,6 +252,11 @@ dist
 *.sqlite
 *.sqlite3
 advisor_connect.db
+
+# ML Models
+backend/models/
+*.pkl
+*.joblib
 
 # OS generated files
 .DS_Store

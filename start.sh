@@ -39,9 +39,9 @@ source venv/bin/activate
 echo "📦 Installing Python dependencies..."
 pip install -r requirements.txt
 
-# Seed the database
-echo "🌱 Seeding database with sample data..."
-python seed_data.py
+# Create sample Excel file
+echo "📊 Creating sample Excel file..."
+python create_sample_excel.py
 
 # Start backend server in background
 echo "🚀 Starting FastAPI backend on http://localhost:8000"
