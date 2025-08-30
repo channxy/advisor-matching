@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score
-from sentence_transformers import SentenceTransformer
+# Removed sentence_transformers - using offline TF-IDF instead
 import pickle
 import json
 import os
@@ -15,7 +15,7 @@ from ..models import Advisor, Case, Assignment, Tag
 import logging
 
 # Import the new comprehensive ML model
-from .ml_model import AdvisorMatchingML, QueryFeatures, AdvisorProfile
+from .ml_model_offline import AdvisorMatchingMLOffline as AdvisorMatchingML, QueryFeatures, AdvisorProfile
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +26,20 @@ class MLAdvisorService:
         self.label_encoder = LabelEncoder()
         self.scaler = StandardScaler()
         self.tfidf_vectorizer = TfidfVectorizer(max_features=500, stop_words='english')
-        self.sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+        # Removed sentence_transformer - using offline TF-IDF instead
         
         # Initialize the new comprehensive ML model
         self.advisor_matching_ml = AdvisorMatchingML()
         
         # Ensure model directory exists
         os.makedirs(model_save_path, exist_ok=True)
+        
+        # Try to load existing model
+        try:
+            self.advisor_matching_ml.load_model()
+            logger.info("Loaded existing ML model")
+        except Exception as e:
+            logger.info(f"No existing model found or error loading: {e}")
     
     def process_excel_data(self, excel_file_path: str, db: Session) -> Dict:
         """Process Excel file and update advisor profiles"""

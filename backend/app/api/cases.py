@@ -8,7 +8,7 @@ from ..models.database import get_db
 from ..models import Case, CaseStatus
 from ..schemas.case import CaseCreate, CaseResponse, CaseListResponse, CaseWithAssignmentResponse
 from ..services.matching_service import MatchingService
-from ..services.ai_service import AIService
+from ..services.ai_service_gateway import AIServiceGateway as AIService
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 matching_service = MatchingService()

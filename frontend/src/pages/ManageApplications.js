@@ -64,7 +64,12 @@ function ManageApplications() {
     navigate(`/case/${caseId}`);
   };
 
-  const handleAction = (caseItem, type) => {
+  const handleRowClick = (caseId) => {
+    handleViewCase(caseId);
+  };
+
+  const handleAction = (caseItem, type, event) => {
+    event.stopPropagation(); // Prevent row click when clicking action buttons
     setSelectedCase(caseItem);
     setActionType(type);
     setActionDialog(true);
@@ -145,7 +150,7 @@ function ManageApplications() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold' }}>
-        My Cases - {advisorId || 'ADV001'}
+        Manage Cases - {advisorId || 'ADV001'}
       </Typography>
 
       {/* Filters */}
@@ -205,7 +210,17 @@ function ManageApplications() {
               </TableHead>
               <TableBody>
                 {filteredCases.map((case_item) => (
-                  <TableRow key={case_item.case_id} hover>
+                  <TableRow 
+                    key={case_item.case_id} 
+                    hover
+                    onClick={() => handleRowClick(case_item.case_id)}
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                      }
+                    }}
+                  >
                     <TableCell>
                       <Typography variant="body2" fontWeight="bold">
                         {case_item.case_id}
@@ -266,7 +281,10 @@ function ManageApplications() {
                         <Tooltip title="View Details">
                           <IconButton
                             size="small"
-                            onClick={() => handleViewCase(case_item.case_id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewCase(case_item.case_id);
+                            }}
                           >
                             <Visibility />
                           </IconButton>
@@ -277,7 +295,7 @@ function ManageApplications() {
                               <IconButton
                                 size="small"
                                 color="success"
-                                onClick={() => handleAction(case_item, 'accept')}
+                                onClick={(e) => handleAction(case_item, 'accept', e)}
                               >
                                 <CheckCircle />
                               </IconButton>
@@ -286,7 +304,7 @@ function ManageApplications() {
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => handleAction(case_item, 'decline')}
+                                onClick={(e) => handleAction(case_item, 'decline', e)}
                               >
                                 <Cancel />
                               </IconButton>

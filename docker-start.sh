@@ -29,14 +29,31 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Check if OpenAI API key is set (optional)
-if [ -z "$OPENAI_API_KEY" ]; then
-    echo "⚠️  Note: OPENAI_API_KEY environment variable is not set."
-    echo "   The system will work with fallback AI responses."
-    echo "   To enable full AI functionality, set your OpenAI API key:"
-    echo "   export OPENAI_API_KEY='your-api-key-here'"
+# Check for environment file
+if [ ! -f "docker.env" ]; then
+    echo "⚠️  docker.env file not found. Creating from template..."
+    cp docker.env.example docker.env
+    echo "📝 Please edit docker.env with your AI gateway configuration:"
+    echo "   - OPENAI_API_BASE_URL: Your AI gateway URL"
+    echo "   - OPENAI_API_KEY: Your gateway API key"
+    echo "   - DEFAULT_AI_MODEL: Preferred model (gpt4o, claude-3-5-sonnet, etc.)"
     echo ""
 fi
+
+# Check if AI gateway is configured
+if [ -f "docker.env" ]; then
+    source docker.env
+    if [ -n "$OPENAI_API_BASE_URL" ] && [ -n "$OPENAI_API_KEY" ]; then
+        echo "✅ AI Gateway configured: $OPENAI_API_BASE_URL"
+        echo "   Model: ${DEFAULT_AI_MODEL:-gpt4o}"
+    else
+        echo "⚠️  AI Gateway not fully configured in docker.env"
+        echo "   The system will work with offline fallback mode."
+    fi
+else
+    echo "⚠️  docker.env file not found. Using offline mode."
+fi
+echo ""
 
 # Stop any existing containers
 echo "🛑 Stopping any existing containers..."
@@ -44,7 +61,11 @@ $COMPOSE_CMD down
 
 # Build and start the services
 echo "🔨 Building and starting services..."
-$COMPOSE_CMD up --build -d
+if [ -f "docker.env" ]; then
+    $COMPOSE_CMD --env-file docker.env up --build -d
+else
+    $COMPOSE_CMD up --build -d
+fi
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to be ready..."

@@ -6,10 +6,7 @@ from datetime import datetime, timedelta
 from ..models.database import get_db
 from ..models import Advisor, Assignment, Case, Tag
 from ..schemas.advisor import AdvisorResponse, AdvisorListResponse, AdvisorDashboardResponse
-from ..services.profiling_service import ProfilingService
-
 router = APIRouter(prefix="/advisors", tags=["advisors"])
-profiling_service = ProfilingService()
 
 @router.get("/", response_model=AdvisorListResponse)
 async def get_advisors(
@@ -116,22 +113,4 @@ async def get_advisor_dashboard(advisor_id: str, db: Session = Depends(get_db)):
         tags=tags
     )
 
-@router.get("/{advisor_id}/learning-curve")
-async def get_advisor_learning_curve(advisor_id: str, db: Session = Depends(get_db)):
-    """Get advisor learning curve data"""
-    advisor = db.query(Advisor).filter(Advisor.advisor_id == advisor_id).first()
-    if not advisor:
-        raise HTTPException(status_code=404, detail="Advisor not found")
-    
-    learning_curve = await profiling_service.get_advisor_learning_curve(advisor.id, db)
-    return {"learning_curve": learning_curve}
 
-@router.post("/{advisor_id}/update-profile")
-async def update_advisor_profile(advisor_id: str, db: Session = Depends(get_db)):
-    """Trigger advisor profile update"""
-    advisor = db.query(Advisor).filter(Advisor.advisor_id == advisor_id).first()
-    if not advisor:
-        raise HTTPException(status_code=404, detail="Advisor not found")
-    
-    profile_data = await profiling_service.update_advisor_profile(advisor.id, db)
-    return {"message": "Profile updated successfully", "data": profile_data}

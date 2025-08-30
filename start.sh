@@ -56,6 +56,18 @@ pip install -r requirements.txt
 echo "📊 Creating sample Excel file..."
 python create_sample_excel.py
 
+# Test ML model integration
+echo "🧪 Testing ML model integration..."
+python test_integration.py
+
+# Test AI gateway (if configured)
+echo "🤖 Testing AI gateway..."
+python test_ai_gateway.py
+
+# Run integration tests
+echo "🔗 Running integration tests..."
+python test_integration.py
+
 # Start backend server in background
 echo "🚀 Starting FastAPI backend on http://localhost:8000"
 uvicorn main:app --reload --host 0.0.0.0 --port 8000 &

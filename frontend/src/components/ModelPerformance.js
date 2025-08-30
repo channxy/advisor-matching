@@ -14,14 +14,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Backdrop,
 } from '@mui/material';
 import {
-  TrendingUp,
   Psychology,
   Upload,
   Refresh,
   CheckCircle,
-  Error,
 } from '@mui/icons-material';
 import { excelAPI } from '../services/api';
 
@@ -59,10 +58,18 @@ const ModelPerformance = () => {
     try {
       setRetraining(true);
       setError(null);
-      const response = await excelAPI.retrainModel(selectedFile);
       
-      if (response.data.success) {
-        setPerformance(response.data);
+      // Retrain the model
+      const retrainResponse = await excelAPI.retrainModel(selectedFile);
+      
+      if (retrainResponse.data.success) {
+        // Show success message briefly
+        setError(null);
+        
+        // Fetch updated model performance data
+        await fetchModelPerformance();
+        
+        // Close dialog and reset
         setRetrainDialog(false);
         setSelectedFile(null);
       }
@@ -118,6 +125,25 @@ const ModelPerformance = () => {
 
   return (
     <Box>
+      {/* Full-screen loading backdrop during retraining */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column',
+          gap: 2
+        }}
+        open={retraining}
+      >
+        <CircularProgress color="inherit" />
+        <Typography variant="h6">
+          Retraining ML Model...
+        </Typography>
+        <Typography variant="body2" color="rgba(255,255,255,0.8)">
+          This may take a few moments. Please wait.
+        </Typography>
+      </Backdrop>
+
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1">
           <Psychology sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -127,6 +153,7 @@ const ModelPerformance = () => {
           variant="contained"
           startIcon={<Refresh />}
           onClick={() => setRetrainDialog(true)}
+          disabled={retraining}
         >
           Retrain Model
         </Button>
@@ -262,6 +289,7 @@ const ModelPerformance = () => {
               variant="contained"
               startIcon={<Upload />}
               onClick={() => setRetrainDialog(true)}
+              disabled={retraining}
             >
               Train Model
             </Button>
@@ -270,7 +298,7 @@ const ModelPerformance = () => {
       )}
 
       {/* Retrain Dialog */}
-      <Dialog open={retrainDialog} onClose={() => setRetrainDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={retrainDialog} onClose={() => !retraining && setRetrainDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Retrain ML Model</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" mb={2}>
@@ -282,6 +310,7 @@ const ModelPerformance = () => {
             id="retrain-file-input"
             type="file"
             onChange={handleFileSelect}
+            disabled={retraining}
           />
           <label htmlFor="retrain-file-input">
             <Button
@@ -289,6 +318,7 @@ const ModelPerformance = () => {
               component="span"
               startIcon={<Upload />}
               fullWidth
+              disabled={retraining}
             >
               {selectedFile ? selectedFile.name : 'Select Excel File'}
             </Button>
@@ -299,7 +329,7 @@ const ModelPerformance = () => {
                 label={`Selected: ${selectedFile.name}`}
                 color="success"
                 icon={<CheckCircle />}
-                onDelete={() => setSelectedFile(null)}
+                onDelete={() => !retraining && setSelectedFile(null)}
               />
             </Box>
           )}

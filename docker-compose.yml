@@ -10,6 +10,8 @@ services:
       - "8000:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-}
+      - DEFAULT_AI_MODEL=${DEFAULT_AI_MODEL:-gpt4o}
       - PYTHONPATH=/app
     volumes:
       - ./backend/models:/app/models

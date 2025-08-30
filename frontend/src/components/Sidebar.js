@@ -30,7 +30,7 @@ const menuItems = [
     category: 'advisor'
   },
   {
-    text: 'Manage Applications',
+    text: 'Manage Cases',
     icon: <AssignmentIcon />,
     path: '/applications',
     category: 'advisor'

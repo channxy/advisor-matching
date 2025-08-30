@@ -14,8 +14,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 import logging
 import os
-from sentence_transformers import SentenceTransformer
-import openai
+import re
 from pydantic import BaseModel
 import warnings
 warnings.filterwarnings('ignore')
@@ -62,44 +61,113 @@ class AdvisorMatch(BaseModel):
     success_rate: float
     total_cases: int
 
-class QueryTextProcessor(BaseEstimator, TransformerMixin):
-    """Custom transformer for processing query text"""
+class OfflineTextProcessor(BaseEstimator, TransformerMixin):
+    """Completely offline text processor using TF-IDF and custom features"""
     
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
-        self.model_name = model_name
-        self.model = None
+    def __init__(self, max_features=1000):
+        self.max_features = max_features
+        self.tfidf = TfidfVectorizer(
+            max_features=max_features,
+            stop_words='english',
+            ngram_range=(1, 2),
+            min_df=1,
+            max_df=0.9
+        )
+        self.fitted = False
         
     def fit(self, X, y=None):
         try:
-            self.model = SentenceTransformer(self.model_name)
+            # Fit TF-IDF on the text data
+            self.tfidf.fit(X)
+            self.fitted = True
+            logger.info("TF-IDF vectorizer fitted successfully")
         except Exception as e:
-            logger.warning(f"Could not load SentenceTransformer: {e}")
-            self.model = None
+            logger.warning(f"Could not fit TF-IDF: {e}")
+            self.fitted = False
         return self
     
     def transform(self, X):
-        if self.model is None:
-            # Fallback to simple TF-IDF
-            return np.zeros((len(X), 384))  # Default embedding size
+        if not self.fitted:
+            # Return zero features if not fitted
+            return np.zeros((len(X), self.max_features))
         
         try:
-            embeddings = self.model.encode(X, show_progress_bar=False)
-            return embeddings
+            # Transform text to TF-IDF features
+            tfidf_features = self.tfidf.transform(X).toarray()
+            
+            # Add custom text features
+            custom_features = self._extract_custom_features(X)
+            
+            # Combine features
+            combined_features = np.hstack([tfidf_features, custom_features])
+            
+            return combined_features
         except Exception as e:
-            logger.error(f"Error in text embedding: {e}")
-            return np.zeros((len(X), 384))
+            logger.error(f"Error in text transformation: {e}")
+            return np.zeros((len(X), self.max_features + 10))  # +10 for custom features
+    
+    def _extract_custom_features(self, texts):
+        """Extract custom text features without external dependencies"""
+        features = []
+        
+        for text in texts:
+            if not isinstance(text, str):
+                text = str(text)
+            
+            # Text length features
+            text_length = len(text)
+            word_count = len(text.split())
+            avg_word_length = np.mean([len(word) for word in text.split()]) if word_count > 0 else 0
+            
+            # Complexity features
+            unique_words = len(set(text.lower().split()))
+            vocabulary_richness = unique_words / word_count if word_count > 0 else 0
+            
+            # Special character features
+            special_chars = len(re.findall(r'[^a-zA-Z0-9\s]', text))
+            numbers = len(re.findall(r'\d', text))
+            
+            # Topic-specific keywords (business domain)
+            business_keywords = ['tax', 'audit', 'consulting', 'strategy', 'risk', 'compliance', 'financial', 'advisory']
+            keyword_count = sum(1 for keyword in business_keywords if keyword.lower() in text.lower())
+            
+            # Country/region keywords
+            country_keywords = ['united states', 'canada', 'uk', 'australia', 'singapore', 'europe', 'asia']
+            country_count = sum(1 for country in country_keywords if country.lower() in text.lower())
+            
+            # Department keywords
+            dept_keywords = ['tax', 'audit', 'consulting', 'technology', 'risk', 'strategy']
+            dept_count = sum(1 for dept in dept_keywords if dept.lower() in text.lower())
+            
+            # Combine all features
+            feature_vector = [
+                text_length,
+                word_count,
+                avg_word_length,
+                unique_words,
+                vocabulary_richness,
+                special_chars,
+                numbers,
+                keyword_count,
+                country_count,
+                dept_count
+            ]
+            
+            features.append(feature_vector)
+        
+        return np.array(features)
 
-class AdvisorMatchingML:
+class AdvisorMatchingMLOffline:
     """
-    Comprehensive ML model for advisor matching based on transaction data
+    Completely offline ML model for advisor matching - no external downloads required
     """
     
-    def __init__(self, model_path: str = "models/advisor_matching_model.pkl"):
+    def __init__(self, model_path: str = "models/advisor_matching_model_offline.pkl"):
         self.model_path = model_path
         self.model = None
         self.label_encoders = {}
         self.scaler = StandardScaler()
-        self.text_processor = QueryTextProcessor()
+        self.text_processor = OfflineTextProcessor()
         self.feature_columns = [
             'Topics', 'Current Sub-Topic', 'Business Function', 'Department', 
             'Country', 'Category', 'Complexity'
@@ -166,15 +234,8 @@ class AdvisorMatchingML:
         """
         Create comprehensive query text by combining relevant columns
         """
-        query_columns = []
-        
-        # Find all columns containing 'query'
-        for col in df.columns:
-            if 'query' in col.lower():
-                query_columns.append(col)
-        
-        # Combine all query-related text
         query_texts = []
+        
         for _, row in df.iterrows():
             text_parts = []
             
@@ -186,10 +247,11 @@ class AdvisorMatchingML:
             if 'Current Sub-Topic' in df.columns:
                 text_parts.append(str(row['Current Sub-Topic']))
             
-            # Add all query columns
-            for col in query_columns:
-                if pd.notna(row[col]) and str(row[col]).strip():
-                    text_parts.append(str(row[col]))
+            # Add query description
+            if 'Please describe your query' in df.columns:
+                query_desc = str(row['Please describe your query'])
+                if query_desc and query_desc != 'nan':
+                    text_parts.append(query_desc)
             
             # Add business context
             if 'Business Function' in df.columns:
@@ -241,8 +303,8 @@ class AdvisorMatchingML:
             
             expertise_tags = ', '.join(list(topics) + list(subtopics) + list(services))
             
-            # Generate profile summary using OpenAI if available
-            profile_summary = self._generate_profile_summary(group)
+            # Generate profile summary using local text analysis
+            profile_summary = self._generate_profile_summary_offline(group)
             
             profile = AdvisorProfile(
                 advisor_id=str(advisor_id),
@@ -270,32 +332,45 @@ class AdvisorMatchingML:
         logger.info(f"Created {len(profiles)} advisor profiles")
         return profiles
     
-    def _generate_profile_summary(self, advisor_data: pd.DataFrame) -> Optional[str]:
+    def _generate_profile_summary_offline(self, advisor_data: pd.DataFrame) -> str:
         """
-        Generate profile summary using OpenAI (if available)
+        Generate profile summary using local text analysis (no external APIs)
         """
         try:
-            # Check if OpenAI is available
-            if not hasattr(openai, 'OpenAI'):
-                return None
-            
             # Create summary from advisor's case data
             topics = advisor_data['Topics'].unique()
             subtopics = advisor_data['Current Sub-Topic'].unique()
             services = advisor_data['Services'].unique()
             countries = advisor_data['Country'].unique()
             
+            # Calculate key metrics
+            avg_complexity = advisor_data['Complexity'].mean()
+            avg_resolution_time = advisor_data['resolution_time'].mean()
+            total_cases = len(advisor_data)
+            
+            # Determine expertise level
+            if total_cases >= 5:
+                expertise_level = "expert"
+            elif total_cases >= 3:
+                expertise_level = "experienced"
+            else:
+                expertise_level = "specialist"
+            
+            # Determine primary focus areas
+            primary_topics = list(topics)[:3] if len(topics) > 3 else list(topics)
+            primary_services = list(services)[:2] if len(services) > 2 else list(services)
+            
             summary_text = f"""
-            This advisor specializes in {', '.join(services)} with expertise in {', '.join(topics)}.
+            This {expertise_level} advisor specializes in {', '.join(primary_services)} with expertise in {', '.join(primary_topics)}.
             Key areas include {', '.join(subtopics)}. They have handled cases in {', '.join(countries)}.
-            Total cases: {len(advisor_data)}, Average resolution time: {advisor_data['resolution_time'].mean():.1f} days.
+            Total cases: {total_cases}, Average resolution time: {avg_resolution_time:.1f} days, Average complexity: {avg_complexity:.1f}.
             """
             
             return summary_text.strip()
             
         except Exception as e:
             logger.warning(f"Could not generate profile summary: {e}")
-            return None
+            return "Advisor profile generated from case history."
     
     def prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -392,7 +467,7 @@ class AdvisorMatchingML:
             'test_score': test_score,
             'cv_mean': cv_mean,
             'cv_std': cv_std,
-            'feature_importance': dict(zip(self.feature_columns, best_model.feature_importances_))
+            'feature_importance': dict(zip(self.feature_columns, best_model.feature_importances_)) if best_model else {}
         }
         
         logger.info(f"Best model: {best_model_name} with test score: {best_score:.3f}")
@@ -592,7 +667,7 @@ class AdvisorMatchingML:
         """
         Retrain model with new data
         """
-        logger.info("Retraining model with new data...")
+        logger.info("Retraining ML model with new data...")
         
         # Load new data
         new_df = self.load_and_preprocess_data(new_data_path)
@@ -618,7 +693,7 @@ class AdvisorMatchingML:
 # Example usage and testing
 if __name__ == "__main__":
     # Initialize ML model
-    ml_model = AdvisorMatchingML()
+    ml_model = AdvisorMatchingMLOffline()
     
     # Load and preprocess data
     df = ml_model.load_and_preprocess_data("transactions.xlsx")

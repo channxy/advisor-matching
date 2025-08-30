@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from ..models import Advisor, Case, Assignment, Tag
-from .ai_service import AIService
+from .ai_service_gateway import AIServiceGateway as AIService
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 

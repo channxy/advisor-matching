@@ -180,12 +180,18 @@ async def retrain_model(
             df = pd.read_excel(tmp_file_path)
             ml_result = ml_service.advisor_matching_ml.retrain_model(tmp_file_path)
             
+            # Get updated model performance data
+            performance_data = ml_service.advisor_matching_ml.get_model_performance()
+            
             return {
                 "success": True,
                 "message": "Model retrained successfully",
-                "model_accuracy": ml_result.get('test_score', 0.0),
-                "model_name": ml_result.get('model_name', 'Unknown'),
-                "cv_score": ml_result.get('cv_mean', 0.0)
+                "model_name": performance_data.get('model_name', 'Unknown'),
+                "test_score": performance_data.get('test_score', 0.0),
+                "train_score": performance_data.get('train_score', 0.0),
+                "cv_mean": performance_data.get('cv_mean', 0.0),
+                "cv_std": performance_data.get('cv_std', 0.0),
+                "feature_importance": performance_data.get('feature_importance', {})
             }
             
         finally:
