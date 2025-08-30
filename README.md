@@ -69,23 +69,52 @@ advisor-matching/
 └── start.sh               # One-command startup script
 ```
 
-## 🚀 Quick Start (One Command)
+## 🚀 Quick Start (Multiple Options)
 
-### Prerequisites
-- **Python 3.8+**
-- **Node.js 16+**
-- **Git**
+### Option 1: Docker (Recommended - Plug & Play)
+**Prerequisites**: Docker Desktop installed
 
-### One-Line Setup & Run
 ```bash
-# Clone and run in one command
+# Clone and run with Docker (one command)
+git clone <repository-url> && cd advisor-matching && ./docker-start.sh
+
+# Or if already cloned, just run:
+./docker-start.sh
+```
+
+### Option 2: Local Development
+**Prerequisites**: Python 3.8+, Node.js 16+, Git
+
+```bash
+# Clone and run locally
 git clone <repository-url> && cd advisor-matching && ./start.sh
 
 # Or if already cloned, just run:
 ./start.sh
 ```
 
-### What the startup script does:
+### Option 3: Manual Docker Commands
+```bash
+# Build and start all services
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### What the startup scripts do:
+
+**Docker Startup (`./docker-start.sh`):**
+1. ✅ **Checks Docker installation**
+2. ✅ **Builds container images** (backend & frontend)
+3. ✅ **Starts all services** with health checks
+4. ✅ **Creates sample Excel data** for testing
+5. ✅ **Opens the application** in your browser
+
+**Local Startup (`./start.sh`):**
 1. ✅ **Creates Python virtual environment**
 2. ✅ **Installs all dependencies** (Python & Node.js)
 3. ✅ **Creates sample Excel data** for testing
@@ -235,16 +264,31 @@ Your Excel file should contain these columns (case-insensitive):
 
 ## 🛠️ Development
 
-### **Backend Development**
+### **Docker Development**
 ```bash
+# Start development environment
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Rebuild after changes
+docker-compose up --build -d
+
+# Access container shell
+docker-compose exec backend bash
+docker-compose exec frontend sh
+```
+
+### **Local Development**
+```bash
+# Backend
 cd backend
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
-```
 
-### **Frontend Development**
-```bash
+# Frontend
 cd frontend
 npm install
 npm start
@@ -252,8 +296,25 @@ npm start
 
 ### **Testing the ML Model**
 ```bash
+# Docker
+docker-compose exec backend python -c "from app.services.ml_model import AdvisorMatchingML; ml = AdvisorMatchingML(); print('ML Model loaded successfully')"
+
+# Local
 cd backend
 python -c "from app.services.ml_model import AdvisorMatchingML; ml = AdvisorMatchingML(); print('ML Model loaded successfully')"
+```
+
+## 🐳 Docker Deployment
+
+For complete Docker deployment instructions, see [DOCKER_README.md](DOCKER_README.md).
+
+### **Production Deployment**
+```bash
+# Start production environment
+docker-compose -f docker-compose.prod.yml up --build -d
+
+# View production logs
+docker-compose -f docker-compose.prod.yml logs -f
 ```
 
 ## 📝 License
