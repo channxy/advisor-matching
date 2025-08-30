@@ -51,6 +51,16 @@ export const excelAPI = {
   getRecommendations: (caseData) => api.post('/api/v1/recommend-advisors', caseData),
   updateAdvisorProfile: (advisorId, caseData) => api.post('/api/v1/update-advisor-profile', { advisor_id: advisorId, ...caseData }),
   getAdvisorInbox: (advisorId) => api.get(`/api/v1/advisor-inbox/${advisorId}`),
+  getModelPerformance: () => api.get('/api/v1/model-performance'),
+  retrainModel: (file) => {
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    return api.post('/api/v1/retrain-model', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 export default api;

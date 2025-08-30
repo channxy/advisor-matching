@@ -39,8 +39,8 @@ async def upload_excel_file(
             # Process Excel data and generate advisor profiles
             result = excel_processor.process_excel_and_generate_profiles(tmp_file_path, db)
             
-            # Train ML model on the processed data
-            ml_result = ml_service._train_model(pd.read_excel(tmp_file_path), db)
+            # Train comprehensive ML model on the processed data
+            ml_result = ml_service._train_comprehensive_model(pd.read_excel(tmp_file_path))
             
             return {
                 "success": True,
@@ -48,7 +48,9 @@ async def upload_excel_file(
                 "cases_created": result['cases_created'],
                 "advisors_created": result['advisors_created'],
                 "assignments_created": result['assignments_created'],
-                "model_accuracy": ml_result.get('accuracy', 0.0)
+                "model_accuracy": ml_result.get('accuracy', 0.0),
+                "model_name": ml_result.get('model_name', 'Unknown'),
+                "model_cv_score": ml_result.get('cv_mean', 0.0)
             }
             
         finally:
@@ -100,6 +102,7 @@ async def get_advisor_recommendations(
                 'expertise_tags': rec['expertise_tags'],
                 'success_rate': rec['success_rate'],
                 'total_cases': rec['total_cases'],
+                'matching_reasons': rec.get('matching_reasons', []),
                 'source': 'ML Model'
             })
         
@@ -131,6 +134,66 @@ async def get_advisor_recommendations(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
+
+@router.get("/model-performance")
+async def get_model_performance():
+    """Get ML model performance metrics"""
+    try:
+        # Get model performance from the comprehensive ML model
+        if hasattr(ml_service.advisor_matching_ml, 'model_metrics') and ml_service.advisor_matching_ml.model_metrics:
+            metrics = ml_service.advisor_matching_ml.model_metrics
+            return {
+                "success": True,
+                "model_name": metrics.get('model_name', 'Unknown'),
+                "test_score": metrics.get('test_score', 0.0),
+                "train_score": metrics.get('train_score', 0.0),
+                "cv_mean": metrics.get('cv_mean', 0.0),
+                "cv_std": metrics.get('cv_std', 0.0),
+                "feature_importance": metrics.get('feature_importance', {})
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No model metrics available. Train the model first."
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting model performance: {str(e)}")
+
+@router.post("/retrain-model")
+async def retrain_model(
+    excel_file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Retrain the ML model with new data"""
+    try:
+        # Validate file type
+        if not excel_file.filename.endswith('.xlsx'):
+            raise HTTPException(status_code=400, detail="Only Excel (.xlsx) files are supported")
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+            shutil.copyfileobj(excel_file.file, tmp_file)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # Retrain the comprehensive ML model
+            df = pd.read_excel(tmp_file_path)
+            ml_result = ml_service.advisor_matching_ml.retrain_model(tmp_file_path)
+            
+            return {
+                "success": True,
+                "message": "Model retrained successfully",
+                "model_accuracy": ml_result.get('test_score', 0.0),
+                "model_name": ml_result.get('model_name', 'Unknown'),
+                "cv_score": ml_result.get('cv_mean', 0.0)
+            }
+            
+        finally:
+            # Clean up temporary file
+            os.unlink(tmp_file_path)
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retraining model: {str(e)}")
 
 @router.post("/update-advisor-profile")
 async def update_advisor_profile(

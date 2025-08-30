@@ -1,14 +1,42 @@
-# AdvisorConnect GenAI - Hackathon POC
+# AdvisorConnect GenAI v2 - AI-Powered Advisor Matching System
 
-A comprehensive AI-powered advisor matching system that dynamically profiles advisors and intelligently matches them to cases based on expertise, performance, and domain knowledge.
+A comprehensive AI-powered advisor matching system that dynamically profiles advisors and intelligently matches them to cases using advanced machine learning models. The system learns from historical transaction data to create accurate advisor profiles and provides intelligent recommendations with detailed reasoning.
 
 ## 🚀 Features
 
-- **AI-Powered Advisor Profiling**: Dynamic advisor profiles with tags, performance metrics, and learning curves
-- **Intelligent Case Matching**: AI-driven matching with percentage scores and detailed insights
-- **Case Management Workflow**: Accept/decline functionality with reason tracking
-- **Real-time Dashboards**: Advisor and admin dashboards with performance analytics
-- **Semantic Search**: OpenAI-powered embeddings for intelligent case classification
+### 🤖 **Advanced ML-Powered Matching**
+- **Comprehensive ML Model**: RandomForest and GradientBoosting algorithms for intelligent advisor matching
+- **Feature Engineering**: Topics, Sub-topics, Business Function, Department, Country, Category, Complexity analysis
+- **Priority-Based Matching**: Topic → Subtopic → Business Function → Department → Country hierarchy
+- **Detailed Reasoning**: Explains why each advisor matches with specific insights
+- **Model Performance Dashboard**: Real-time metrics, feature importance, and accuracy tracking
+
+### 📊 **Dynamic Advisor Profiling**
+- **AI-Generated Profiles**: Created from historical transaction data
+- **Expertise Tags**: Automatically generated from case topics and subtopics
+- **Performance Metrics**: Success rate, resolution time, complexity preference
+- **Learning Curves**: Track advisor development over time
+- **Profile Updates**: Continuous learning from new case data
+
+### 🎯 **Intelligent Case Management**
+- **AI Recommendations**: Top 3 advisor matches with confidence scores
+- **Accept/Decline Workflow**: With reason tracking and status updates
+- **Case Assignment**: Automatic assignment based on ML recommendations
+- **Status Tracking**: Real-time case status updates
+- **Clickable Cases**: Navigate from lists to detailed case views
+
+### 📈 **Real-time Dashboards**
+- **Advisor Dashboard**: Incoming cases, performance metrics, resolved cases
+- **Admin Dashboard**: System-wide case management and analytics
+- **Model Performance**: ML model accuracy, feature importance, retraining capabilities
+- **Interactive Charts**: Performance visualization with Recharts
+
+### 📁 **Excel Data Integration**
+- **Dynamic Data Processing**: Upload Excel files with transaction data
+- **Automatic Profile Generation**: Creates advisor profiles from real data
+- **ML Model Training**: Trains models on your actual transaction data
+- **Retraining Capability**: Update models with new data every 3 days
+- **Multiple Sheet Support**: Handles complex Excel files with multiple sheets
 
 ## 🏗️ Architecture
 
@@ -17,28 +45,36 @@ advisor-matching/
 ├── backend/                 # FastAPI backend
 │   ├── app/
 │   │   ├── models/         # SQLAlchemy models
-│   │   ├── services/       # AI services & business logic
+│   │   ├── services/       # ML services & business logic
+│   │   │   ├── ml_model.py        # Comprehensive ML model
+│   │   │   ├── ml_service.py      # ML service integration
+│   │   │   ├── excel_processor.py # Excel data processing
+│   │   │   └── matching_service.py # Advisor matching logic
 │   │   ├── api/           # API endpoints
-│   │   └── utils/         # Utilities
+│   │   └── schemas/       # Pydantic schemas
+│   ├── models/            # Trained ML models
 │   ├── requirements.txt
 │   └── main.py
 ├── frontend/               # React frontend
 │   ├── src/
 │   │   ├── components/    # Reusable components
+│   │   │   ├── ModelPerformance.js    # ML model dashboard
+│   │   │   ├── ExcelUpload.js         # Excel upload interface
+│   │   │   └── IntegratedCaseSubmission.js # Case submission
 │   │   ├── pages/        # Page components
 │   │   ├── services/     # API services
 │   │   └── utils/        # Utilities
 │   ├── package.json
 │   └── tailwind.config.js
-└── data/                  # Sample data & migrations
+└── start.sh               # One-command startup script
 ```
 
 ## 🚀 Quick Start (One Command)
 
 ### Prerequisites
-- Python 3.8+
-- Node.js 16+
-- OpenAI API key (optional)
+- **Python 3.8+**
+- **Node.js 16+**
+- **Git**
 
 ### One-Line Setup & Run
 ```bash
@@ -49,130 +85,186 @@ git clone <repository-url> && cd advisor-matching && ./start.sh
 ./start.sh
 ```
 
-### 🏆 Hackathon Edition
-For the ML Advisor Matching hackathon system, see [HACKATHON_README.md](HACKATHON_README.md) for:
-- Excel upload and ML model training
-- Advisor recommendation API
-- Inbox simulation
-- Complete hackathon requirements implementation
-
-### Manual Setup (Alternative)
-```bash
-# Set OpenAI API key (optional)
-export OPENAI_API_KEY="your-openai-api-key"
-
-# Backend setup
-cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && python seed_data.py && uvicorn main:app --reload --host 0.0.0.0 --port 8000 &
-
-# Frontend setup (in another terminal)
-cd frontend && npm install && npm start
-```
-
 ### What the startup script does:
-1. ✅ Creates Python virtual environment
-2. ✅ Installs all dependencies (Python & Node.js)
-3. ✅ Seeds the database with sample data
-4. ✅ Starts backend server on port 8000
-5. ✅ Starts frontend server on port 3000
-6. ✅ Opens the application in your browser
+1. ✅ **Creates Python virtual environment**
+2. ✅ **Installs all dependencies** (Python & Node.js)
+3. ✅ **Creates sample Excel data** for testing
+4. ✅ **Starts backend server** on port 8000
+5. ✅ **Starts frontend server** on port 3000
+6. ✅ **Opens the application** in your browser
 
 ## 🎯 Key Features Demonstrated
 
-### Advisor Dashboard
-- View incoming cases with AI matching scores
-- Accept/decline cases with reason tracking
-- Performance metrics and learning curve visualization
-- Historical case management
+### **ML Model Performance Dashboard**
+- **Real-time Model Metrics**: Test accuracy, training accuracy, cross-validation scores
+- **Feature Importance Analysis**: Shows which factors most influence matching
+- **Model Retraining**: Upload new data to improve model accuracy
+- **Performance Visualization**: Interactive charts and progress indicators
 
-### AI Matching Engine
-- Dynamic advisor profiling based on case history
-- Semantic similarity scoring using OpenAI embeddings
-- Detailed matching insights and reasoning
-- Automatic profile updates after case resolution
+### **Intelligent Advisor Matching**
+- **Top 3 Recommendations**: With confidence scores and detailed reasoning
+- **Priority-Based Matching**: Topic → Subtopic → Business Function → Department → Country
+- **Matching Reasons**: Explains why each advisor is recommended
+- **Success Rate Integration**: Considers advisor performance history
 
-### Admin Interface
-- Comprehensive case management across all advisors
-- Advisor performance analytics and profiles
-- Learning curve visualization
-- System-wide metrics and insights
+### **Excel Data Processing**
+- **Dynamic Profile Creation**: Generates advisor profiles from transaction data
+- **Automatic ML Training**: Trains models on your actual data
+- **Multiple Column Support**: Handles complex Excel structures
+- **Query Text Processing**: Combines multiple query-related columns
+
+### **Case Management Workflow**
+- **AI-Powered Recommendations**: Get intelligent advisor suggestions
+- **Accept/Decline Functionality**: With reason tracking
+- **Status Updates**: Real-time case status changes
+- **Clickable Navigation**: From lists to detailed case views
 
 ## 🔧 API Endpoints
 
-### Cases
-- `POST /submit_case` - Submit new case
-- `GET /cases` - List all cases (filterable)
-- `GET /case/{id}` - Get case details
-- `POST /case/{id}/accept` - Accept case
-- `POST /case/{id}/decline` - Decline case
+### **Core Endpoints**
+- `GET /` - Health check
+- `GET /docs` - API documentation (Swagger UI)
 
-### Advisors
-- `GET /advisors` - List all advisors
-- `GET /advisor/{id}` - Get advisor profile
-- `GET /dashboard/advisor/{id}` - Get advisor dashboard data
+### **Cases Management**
+- `GET /cases/` - List all cases (filterable)
+- `GET /cases/{id}` - Get case details
+- `GET /cases/advisor/{advisor_id}` - Get advisor-specific cases
+- `POST /cases/submit_case` - Submit new case
+- `PUT /cases/{id}/resolve` - Resolve case
 
-## 📊 Data Import
+### **Advisor Management**
+- `GET /advisors/` - List all advisors
+- `GET /advisors/{id}` - Get advisor profile
+- `GET /advisors/dashboard/{id}` - Get advisor dashboard data
 
-### Using Your Excel Transaction Data
+### **Assignments**
+- `POST /assignments/case/{case_id}/accept` - Accept case assignment
+- `POST /assignments/case/{case_id}/decline` - Decline case assignment
+- `GET /assignments/case/{case_id}` - Get case assignments
 
-The application can import your real transaction data from Excel to create AI-powered advisor profiles:
+### **ML & Excel Integration**
+- `POST /api/v1/upload-excel` - Upload Excel data and train ML model
+- `POST /api/v1/recommend-advisors` - Get AI-powered advisor recommendations
+- `GET /api/v1/model-performance` - Get ML model performance metrics
+- `POST /api/v1/retrain-model` - Retrain ML model with new data
+- `POST /api/v1/update-advisor-profile` - Update advisor profile with new case data
+- `GET /api/v1/advisor-inbox/{advisor_id}` - Get advisor's assigned cases
 
-```bash
-# Import your Excel data
-cd backend
-python import_data.py your_transaction_data.xlsx
-```
+## 📊 Excel Data Integration
 
-### Expected Excel Columns:
-- `case_id`: Unique case identifier
-- `case_owner`: Advisor who handled the case
-- `advisor_name`: Name of the advisor
-- `topic`: Main topic of the case
-- `subtopic`: Sub-topic of the case
-- `query/description`: Case description or query
-- `casetype`: Type of case
-- `transaction_type`: Type of transaction
-- `business_function`: Business function area
-- `department`: Department
-- `current_advisory_group`: Current advisory group
-- `previous_advisory_group`: Previous advisory group
-- `country`: Country
-- `status`: Case status (resolved, pending, etc.)
-- `date_created`: When case was created
-- `date_resolved`: When case was resolved
-- `resolution_time`: Time to resolve in days
-- `complexity`: Case complexity (0-100)
-- `previous_advisor`: Previous advisor if transferred
+### **Expected Excel Columns**
+Your Excel file should contain these columns (case-insensitive):
+- `Case ID` - Unique case identifier
+- `Services` - Service type
+- `Topics` - Main topic area
+- `Current Sub-Topic` - Specific subtopic
+- `Previous Sub-Topic` - Previous subtopic (if transferred)
+- `Date Created` - Case creation date
+- `Date Submitted` - Case submission date
+- `Created By (Bank ID)` - Creator identifier
+- `Current Case Owner` - Current advisor ID
+- `Previous Case Owner` - Previous advisor ID (if transferred)
+- `Status` - Case status (resolved, pending, etc.)
+- `Current Advisory Group` - Current advisory group
+- `Previous Advisory Group` - Previous advisory group
+- `Overall Case Age (Days)` - Case age in days
+- `Business Function` - Business function area
+- `Department` - Department
+- `Country` - Country
+- `Category` - Case category
+- `Complexity` - Case complexity (0-100)
+- `Time Spent` - Time spent on case
+- `Please describe your query` - Case description/query
 
-### What the AI System Learns:
-- **Advisor Profiles**: Generated from historical transaction data
-- **Expertise Tags**: Created from actual case topics and subtopics
-- **Performance Metrics**: Calculated from resolution times and success rates
-- **Matching Patterns**: Based on real advisor-case assignments
-- **Transfer Patterns**: Learning from case transfer history
+### **What the AI System Learns**
+- **Advisor Expertise**: From topics, subtopics, and services handled
+- **Performance Patterns**: From resolution times and success rates
+- **Geographic Coverage**: From countries and regions handled
+- **Complexity Preferences**: From case complexity patterns
+- **Transfer Patterns**: From case transfer history
+- **Business Function Specialization**: From business function patterns
 
-### Sample Data (Fallback)
-If you don't have Excel data, the application includes sample data for:
-- 10 advisors across different departments and countries
-- 50+ historical cases with various topics and complexity levels
-- Transfer patterns and performance metrics
-- Department and business function mappings
+### **ML Model Features**
+- **Topics & Sub-topics**: Primary matching criteria
+- **Business Function**: Secondary matching criteria
+- **Department**: Organizational alignment
+- **Country**: Geographic expertise
+- **Category**: Case type specialization
+- **Complexity**: Difficulty level preference
 
 ## 🎨 UI/UX Features
 
-- **Material-UI Components**: Modern, accessible UI components
+### **Modern Design**
+- **Material-UI Components**: Professional, accessible UI components
 - **Tailwind CSS**: Utility-first styling for rapid development
-- **Responsive Design**: Works on desktop and mobile
+- **Responsive Design**: Works seamlessly on desktop and mobile
+- **Dark Theme**: Professional dark sidebar with light content area
+
+### **Interactive Elements**
 - **Real-time Updates**: Live notifications and status updates
 - **Interactive Charts**: Performance visualization with Recharts
+- **Clickable Tables**: Navigate from lists to detailed views
+- **Loading States**: Smooth loading indicators and progress bars
 
-## 🔮 Future Enhancements
+### **User Experience**
+- **Intuitive Navigation**: Clear sidebar navigation with icons
+- **Contextual Actions**: Relevant actions based on current view
+- **Error Handling**: Graceful error messages and fallbacks
+- **Success Feedback**: Clear confirmation of successful actions
 
-- Real-time notifications using WebSockets
-- Advanced ML models for better matching
-- Integration with external case management systems
-- Mobile app development
-- Advanced analytics and reporting
+## 🔮 Advanced Features
+
+### **ML Model Capabilities**
+- **Multi-Algorithm Training**: RandomForest and GradientBoosting comparison
+- **Feature Engineering**: Advanced text processing and categorical encoding
+- **Cross-Validation**: Robust model evaluation
+- **Model Persistence**: Save and load trained models
+- **Incremental Learning**: Update models with new data
+
+### **Performance Optimization**
+- **Efficient Data Processing**: Optimized Excel parsing and data handling
+- **Smart Caching**: Cached model predictions and advisor profiles
+- **Background Processing**: Non-blocking ML model training
+- **Memory Management**: Efficient handling of large datasets
+
+### **Scalability Features**
+- **Modular Architecture**: Easy to extend and maintain
+- **API-First Design**: RESTful APIs for easy integration
+- **Database Optimization**: Efficient queries and indexing
+- **Error Recovery**: Robust error handling and recovery
+
+## 🛠️ Development
+
+### **Backend Development**
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### **Frontend Development**
+```bash
+cd frontend
+npm install
+npm start
+```
+
+### **Testing the ML Model**
+```bash
+cd backend
+python -c "from app.services.ml_model import AdvisorMatchingML; ml = AdvisorMatchingML(); print('ML Model loaded successfully')"
+```
 
 ## 📝 License
 
-This is a hackathon POC for demonstration purposes.
+This is a hackathon POC for demonstration purposes. The system showcases advanced ML integration, real-time data processing, and intelligent advisor matching capabilities.
+
+## 🤝 Contributing
+
+This project demonstrates:
+- **Advanced ML Integration** in web applications
+- **Real-time Data Processing** from Excel files
+- **Intelligent Recommendation Systems** with explainable AI
+- **Modern Full-Stack Development** with React and FastAPI
+- **Production-Ready Architecture** with proper error handling and scalability

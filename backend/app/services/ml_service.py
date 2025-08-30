@@ -14,6 +14,9 @@ from sqlalchemy.orm import Session
 from ..models import Advisor, Case, Assignment, Tag
 import logging
 
+# Import the new comprehensive ML model
+from .ml_model import AdvisorMatchingML, QueryFeatures, AdvisorProfile
+
 logger = logging.getLogger(__name__)
 
 class MLAdvisorService:
@@ -24,6 +27,9 @@ class MLAdvisorService:
         self.scaler = StandardScaler()
         self.tfidf_vectorizer = TfidfVectorizer(max_features=500, stop_words='english')
         self.sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        # Initialize the new comprehensive ML model
+        self.advisor_matching_ml = AdvisorMatchingML()
         
         # Ensure model directory exists
         os.makedirs(model_save_path, exist_ok=True)
@@ -77,8 +83,8 @@ class MLAdvisorService:
             # Update advisor profiles in database
             self._update_advisor_profiles(advisor_profiles, db)
             
-            # Train ML model
-            training_result = self._train_model(df, db)
+            # Train comprehensive ML model
+            training_result = self._train_comprehensive_model(df)
             
             return {
                 'message': 'Excel data processed successfully',
@@ -220,6 +226,78 @@ class MLAdvisorService:
             logger.error(f"Error training model: {e}")
             return {'accuracy': 0.0, 'error': str(e)}
     
+    def _train_comprehensive_model(self, df: pd.DataFrame) -> Dict:
+        """Train the comprehensive ML model on transaction data"""
+        try:
+            # Preprocess the data to match the expected format
+            df_processed = df.copy()
+            
+            # Calculate resolution time if not present
+            if 'resolution_time' not in df_processed.columns:
+                if 'Date Created' in df_processed.columns and 'Date Submitted' in df_processed.columns:
+                    df_processed['Date Created'] = pd.to_datetime(df_processed['Date Created'], errors='coerce')
+                    df_processed['Date Submitted'] = pd.to_datetime(df_processed['Date Submitted'], errors='coerce')
+                    df_processed['resolution_time'] = (df_processed['Date Submitted'] - df_processed['Date Created']).dt.days
+                else:
+                    df_processed['resolution_time'] = 5.0  # Default value
+            
+            # Create query text column if not present
+            if 'query_text' not in df_processed.columns:
+                df_processed['query_text'] = self._create_query_text(df_processed)
+            
+            # Create advisor profiles
+            profiles = self.advisor_matching_ml.create_advisor_profiles(df_processed)
+            
+            # Train the model
+            metrics = self.advisor_matching_ml.train_model(df_processed)
+            
+            # Save the model
+            self.advisor_matching_ml.save_model()
+            
+            logger.info(f"Comprehensive ML model trained with test score: {metrics['test_score']:.4f}")
+            return {
+                'accuracy': metrics['test_score'],
+                'model_name': metrics['model_name'],
+                'cv_mean': metrics['cv_mean']
+            }
+            
+        except Exception as e:
+            logger.error(f"Error training comprehensive model: {e}")
+            return {'accuracy': 0.0, 'error': str(e)}
+    
+    def _create_query_text(self, df: pd.DataFrame) -> pd.Series:
+        """Create comprehensive query text by combining relevant columns"""
+        query_texts = []
+        
+        for _, row in df.iterrows():
+            text_parts = []
+            
+            # Add services and topics
+            if 'Services' in df.columns:
+                text_parts.append(str(row['Services']))
+            if 'Topics' in df.columns:
+                text_parts.append(str(row['Topics']))
+            if 'Current Sub-Topic' in df.columns:
+                text_parts.append(str(row['Current Sub-Topic']))
+            
+            # Add query description
+            if 'Please describe your query' in df.columns:
+                query_desc = str(row['Please describe your query'])
+                if query_desc and query_desc != 'nan':
+                    text_parts.append(query_desc)
+            
+            # Add business context
+            if 'Business Function' in df.columns:
+                text_parts.append(str(row['Business Function']))
+            if 'Department' in df.columns:
+                text_parts.append(str(row['Department']))
+            if 'Country' in df.columns:
+                text_parts.append(str(row['Country']))
+            
+            query_texts.append(' '.join(text_parts))
+        
+        return pd.Series(query_texts)
+    
     def _prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         """Prepare features for ML model"""
         features = []
@@ -276,45 +354,49 @@ class MLAdvisorService:
         logger.info(f"Model saved: {model_path}")
     
     def recommend_advisors(self, case_data: Dict, db: Session) -> List[Dict]:
-        """Recommend advisors for a new case"""
-        if self.model is None:
-            # Load latest model
-            self._load_latest_model()
-        
-        if self.model is None:
-            # Fallback: return advisors based on topic similarity
-            return self._fallback_recommendations(case_data, db)
-        
+        """Recommend advisors for a new case using the comprehensive ML model"""
         try:
-            # Prepare case features
-            features = self._prepare_case_features(case_data)
+            # Check if the comprehensive ML model is trained
+            if not hasattr(self.advisor_matching_ml, 'model') or self.advisor_matching_ml.model is None:
+                # Try to load existing model
+                try:
+                    self.advisor_matching_ml.load_model()
+                except FileNotFoundError:
+                    logger.warning("No trained model found. Using fallback recommendations.")
+                    return self._fallback_recommendations(case_data, db)
             
-            # Get predictions
-            predictions = self.model.predict_proba([features])[0]
+            # Create QueryFeatures object
+            query = QueryFeatures(
+                topic=case_data.get('topic', ''),
+                subtopic=case_data.get('subtopic', ''),
+                query_text=case_data.get('query', ''),
+                business_function=case_data.get('business_function', ''),
+                department=case_data.get('department', ''),
+                country=case_data.get('country', ''),
+                category=case_data.get('category', ''),
+                complexity=float(case_data.get('complexity', 50.0))
+            )
             
-            # Get top 3 recommendations
-            top_indices = np.argsort(predictions)[::-1][:3]
+            # Get recommendations using the comprehensive ML model
+            advisor_matches = self.advisor_matching_ml.predict_advisors(query)
             
+            # Convert to the expected format
             recommendations = []
-            for idx in top_indices:
-                advisor_id = self.model.classes_[idx]
-                confidence = predictions[idx]
-                
-                advisor = db.query(Advisor).filter(Advisor.advisor_id == advisor_id).first()
-                if advisor:
-                    recommendations.append({
-                        'advisor_id': advisor_id,
-                        'advisor_name': advisor.advisor_name,
-                        'confidence': float(confidence),
-                        'expertise_tags': advisor.expertise_tags,
-                        'success_rate': advisor.success_rate,
-                        'total_cases': advisor.total_cases_handled
-                    })
+            for match in advisor_matches:
+                recommendations.append({
+                    'advisor_id': match.advisor_id,
+                    'advisor_name': match.advisor_name,
+                    'confidence': match.matching_score / 100.0,  # Convert percentage to decimal
+                    'expertise_tags': match.expertise_tags,
+                    'success_rate': match.success_rate,
+                    'total_cases': match.total_cases,
+                    'matching_reasons': match.matching_reasons
+                })
             
             return recommendations
             
         except Exception as e:
-            logger.error(f"Error in recommendations: {e}")
+            logger.error(f"Error in comprehensive ML recommendations: {e}")
             return self._fallback_recommendations(case_data, db)
     
     def _prepare_case_features(self, case_data: Dict) -> np.ndarray:

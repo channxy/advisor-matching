@@ -17,6 +17,7 @@ import {
   Assignment as AssignmentIcon,
   People as PeopleIcon,
   Assessment as AssessmentIcon,
+  Psychology as PsychologyIcon,
 } from '@mui/icons-material';
 
 const drawerWidth = 280;
@@ -44,6 +45,12 @@ const menuItems = [
     text: 'Advisor Profiles',
     icon: <PeopleIcon />,
     path: '/admin/advisors',
+    category: 'admin'
+  },
+  {
+    text: 'ML Model Performance',
+    icon: <PsychologyIcon />,
+    path: '/admin/model-performance',
     category: 'admin'
   },
 ];
