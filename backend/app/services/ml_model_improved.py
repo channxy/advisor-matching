@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 import pickle
 import json
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class AdvisorMatchingML:
     """
-    AI Gateway-powered ML model for advisor matching
+    Improved AI Gateway-powered ML model for advisor matching
     Handles dynamic Excel columns and properly updates database
     """
     
@@ -277,7 +277,7 @@ class AdvisorMatchingML:
     async def train_model(self, df: pd.DataFrame, db: Session) -> Dict:
         """Train the AI gateway-powered model with database updates"""
         try:
-            if self.ai_gateway_available:
+            if self.ai_service.is_gateway_available():
                 logger.info("Training AI Gateway enhanced model")
             else:
                 logger.info("Training model with offline fallback (AI Gateway not available)")
@@ -292,7 +292,7 @@ class AdvisorMatchingML:
             department_result = await self._train_department_classifier(processed_data)
             
             # Generate advisor embeddings
-            if self.ai_gateway_available:
+            if self.ai_service.is_gateway_available():
                 advisor_result = await self._generate_advisor_embeddings(processed_data, db)
             else:
                 advisor_result = await self._generate_advisor_embeddings_offline(processed_data, db)
@@ -307,7 +307,7 @@ class AdvisorMatchingML:
                 'last_trained': datetime.now().isoformat(),
                 'total_advisors': len(self.advisor_embeddings),
                 'total_cases': len(processed_data),
-                'ai_gateway_used': self.ai_gateway_available
+                'ai_gateway_used': self.ai_service.is_gateway_available()
             })
             
             # Save model
@@ -315,12 +315,12 @@ class AdvisorMatchingML:
             
             return {
                 'success': True,
-                'message': f'Model trained successfully with {"AI Gateway" if self.ai_gateway_available else "offline fallback"}',
+                'message': f'Model trained successfully with {"AI Gateway" if self.ai_service.is_gateway_available() else "offline fallback"}',
                 'department_accuracy': department_result.get('test_score', 0.0),
                 'advisors_processed': len(self.advisor_embeddings),
                 'cases_created': cases_created,
                 'advisors_updated': advisors_updated,
-                'ai_gateway_used': self.ai_gateway_available
+                'ai_gateway_used': self.ai_service.is_gateway_available()
             }
             
         except Exception as e:
@@ -727,7 +727,7 @@ class AdvisorMatchingML:
         """Predict best advisors for a query using AI Gateway embeddings"""
         try:
             # Get query embedding
-            if self.ai_gateway_available:
+            if self.ai_service.is_gateway_available():
                 query_embedding = await self.ai_service.get_embedding(query, model="text3large")
             else:
                 query_embedding = await self.ai_service._get_embedding_offline(query)
@@ -883,7 +883,7 @@ class AdvisorMatchingML:
         return {
             "success": True,
             **self.model_metrics,
-            "ai_gateway_available": self.ai_gateway_available
+            "ai_gateway_available": self.ai_service.is_gateway_available()
         }
     
     async def retrain_model(self, excel_file_path: str, db: Session) -> Dict:
@@ -904,69 +904,3 @@ class AdvisorMatchingML:
                 'success': False,
                 'message': f'Retraining failed: {str(e)}'
             }
-    
-    async def update_advisor_embedding(self, advisor_id: str, new_queries: List[str], db: Session) -> bool:
-        """Update advisor embedding with new queries"""
-        try:
-            if not new_queries:
-                return False
-            
-            # Combine new queries
-            combined_text = ' '.join(new_queries)
-            
-            # Get new embedding
-            new_embedding = await self.ai_service.get_embedding(combined_text, model="text3large")
-            
-            # Update or create advisor embedding
-            if advisor_id in self.advisor_embeddings:
-                # Update existing embedding (average with old one)
-                old_embedding = self.advisor_embeddings[advisor_id]['embedding']
-                old_count = self.advisor_embeddings[advisor_id]['query_count']
-                
-                # Weighted average
-                total_count = old_count + len(new_queries)
-                new_avg_embedding = [
-                    (old_emb * old_count + new_emb * len(new_queries)) / total_count
-                    for old_emb, new_emb in zip(old_embedding, new_embedding)
-                ]
-                
-                self.advisor_embeddings[advisor_id] = {
-                    'embedding': new_avg_embedding,
-                    'query_count': total_count,
-                    'last_updated': datetime.now().isoformat()
-                }
-            else:
-                # Create new embedding
-                self.advisor_embeddings[advisor_id] = {
-                    'embedding': new_embedding,
-                    'query_count': len(new_queries),
-                    'last_updated': datetime.now().isoformat()
-                }
-            
-            # Save updated embeddings
-            self.save_model()
-            
-            logger.info(f"Updated embedding for advisor {advisor_id}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error updating advisor embedding: {e}")
-            return False
-    
-    def get_advisor_embedding_stats(self) -> Dict:
-        """Get statistics about advisor embeddings"""
-        try:
-            total_advisors = len(self.advisor_embeddings)
-            total_queries = sum(data.get('query_count', 0) for data in self.advisor_embeddings.values())
-            
-            return {
-                'total_advisors': total_advisors,
-                'total_queries': total_queries,
-                'avg_queries_per_advisor': total_queries / total_advisors if total_advisors > 0 else 0,
-                'ai_gateway_available': self.ai_gateway_available,
-                'model_last_updated': self.model_metrics.get('last_trained', 'Never')
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting embedding stats: {e}")
-            return {}

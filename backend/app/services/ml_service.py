@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from ..models import Advisor, Case, Assignment, Tag
 import logging
 
-# Import the new AI Gateway-powered ML model
-from .ml_model import AdvisorMatchingML
+# Import the improved AI Gateway-powered ML model
+from .ml_model_improved import AdvisorMatchingML
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +244,9 @@ class MLAdvisorService:
             return {
                 'accuracy': training_result.get('department_accuracy', 0.0),
                 'model_name': training_result.get('message', 'AI Gateway Model'),
-                'cv_mean': training_result.get('department_accuracy', 0.0) * 0.95  # Approximate CV score
+                'cv_mean': training_result.get('cv_mean', 0.0),
+                'cases_created': training_result.get('cases_created', 0),
+                'advisors_updated': training_result.get('advisors_updated', 0)
             }
             
         except Exception as e:
