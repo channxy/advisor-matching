@@ -123,21 +123,32 @@ class MLAdvisorService:
             'resolution_times': [],
             'success_count': 0,
             'total_count': len(advisor_data),
-            'latest_transaction_date': None,
-            'all_queries': []
+            'latest_submitted_date': None,
+            'all_queries': [],
+            'all_transaction_details': [],  # Step 5: All columns cleanup and merge
+            'case_types': set(),
+            'categories': set()
         }
         
         # Process all transactions for this advisor
         for row in advisor_data:
+            # Step 5: Collect all transaction details for comprehensive analysis
+            transaction_detail = {}
+            for col in row.index:
+                if pd.notna(row[col]) and str(row[col]).strip() != '':
+                    transaction_detail[col] = str(row[col])
+            profile['all_transaction_details'].append(transaction_detail)
+            
             # Collect all queries for AI processing
             query_text = str(row.get('Please describe your query', row.get('query', '')))
             if query_text and query_text != 'nan':
                 profile['all_queries'].append(query_text)
             
-            # Collect topics and subtopics
+            # Collect topics and subtopics (Step 3: expertise tags based on category and subcategory)
             topic = str(row.get('Topics', row.get('topic', '')))
             subtopic = str(row.get('Current Sub-Topic', row.get('subtopic', '')))
             service = str(row.get('Services', row.get('service', '')))
+            case_type = str(row.get('Category', row.get('casetype', '')))
             
             if topic and topic != 'nan':
                 profile['topics'].add(topic)
@@ -145,17 +156,19 @@ class MLAdvisorService:
                 profile['subtopics'].add(subtopic)
             if service and service != 'nan':
                 profile['services'].add(service)
+            if case_type and case_type != 'nan':
+                profile['case_types'].add(case_type)
             
             # Calculate complexity
             complexity = float(row.get('Complexity', row.get('complexity', 50.0)))
             profile['complexities'].append(complexity)
             
-            # Calculate resolution time (in hours)
+            # Step 4: Calculate resolution time (in hours) based on case completion date - date submitted
             try:
                 date_created = pd.to_datetime(row.get('Date Created', row.get('date_created')))
-                date_resolved = pd.to_datetime(row.get('Date Submitted', row.get('date_resolved')))
-                if pd.notna(date_created) and pd.notna(date_resolved):
-                    resolution_hours = (date_resolved - date_created).total_seconds() / 3600
+                date_submitted = pd.to_datetime(row.get('Date Submitted', row.get('date_resolved')))
+                if pd.notna(date_created) and pd.notna(date_submitted):
+                    resolution_hours = (date_submitted - date_created).total_seconds() / 3600
                     profile['resolution_times'].append(resolution_hours)
             except:
                 pass
@@ -165,13 +178,13 @@ class MLAdvisorService:
             if status in ['resolved', 'completed']:
                 profile['success_count'] += 1
             
-            # Track latest transaction for metadata
+            # Step 3: Track latest query based on date submitted (not date created)
             try:
-                transaction_date = pd.to_datetime(row.get('Date Created', row.get('date_created')))
-                if pd.notna(transaction_date):
-                    if profile['latest_transaction_date'] is None or transaction_date > profile['latest_transaction_date']:
-                        profile['latest_transaction_date'] = transaction_date
-                        # Use latest transaction for metadata
+                submitted_date = pd.to_datetime(row.get('Date Submitted', row.get('date_resolved')))
+                if pd.notna(submitted_date):
+                    if profile['latest_submitted_date'] is None or submitted_date > profile['latest_submitted_date']:
+                        profile['latest_submitted_date'] = submitted_date
+                        # Use latest submitted transaction for metadata
                         profile['advisor_name'] = str(row.get('Current Case Owner', advisor_id))
                         profile['current_advisory_group'] = str(row.get('Current Advisory Group', ''))
                         profile['previous_advisory_group'] = str(row.get('Previous Advisory Group', ''))
@@ -195,44 +208,88 @@ class MLAdvisorService:
             all_topics = list(profile['topics']) + list(profile['subtopics']) + list(profile['services'])
             profile['expertise_tags'] = ','.join(all_topics[:10])
         
-        # Generate profile summary
-        profile['profile_summary'] = self._generate_comprehensive_profile_summary(profile)
+        # Step 7: Generate profile summary (use AI-generated summary if available)
+        if 'ai_generated_summary' in profile and profile['ai_generated_summary']:
+            profile['profile_summary'] = profile['ai_generated_summary']
+        else:
+            profile['profile_summary'] = self._generate_comprehensive_profile_summary(profile)
         
         return profile
     
     async def _generate_ai_expertise_tags(self, profile: Dict) -> str:
-        """Generate AI-powered expertise tags based on all advisor queries"""
+        """Step 6: Generate AI-powered expertise tags and summary based on comprehensive advisor data"""
         try:
-            # Combine all queries for comprehensive analysis
-            combined_queries = ' '.join(profile['all_queries'])
+            # Step 5: Prepare comprehensive data chunk for AI processing
+            comprehensive_data = {
+                'advisor_id': profile['advisor_id'],
+                'total_transactions': profile['total_count'],
+                'all_queries': profile['all_queries'],
+                'topics_handled': list(profile['topics']),
+                'subtopics_handled': list(profile['subtopics']),
+                'services_provided': list(profile['services']),
+                'case_types': list(profile['case_types']),
+                'transaction_details': profile['all_transaction_details'][:10],  # Limit to avoid token overflow
+                'performance_metrics': {
+                    'success_rate': profile['success_rate'],
+                    'avg_resolution_hours': profile['avg_resolution_time_hours'],
+                    'total_cases': profile['total_count']
+                }
+            }
             
-            # Use AI service to generate expertise tags
+            # Use AI service to generate expertise tags and summary
             if hasattr(self, 'ai_service'):
-                # If AI service is available, use it
-                expertise_prompt = f"""
-                Based on the following queries handled by an advisor, generate 5-8 expertise tags that best describe their areas of expertise:
+                # Step 6: Single comprehensive AI call
+                comprehensive_prompt = f"""
+                Analyze this advisor's comprehensive transaction history and generate:
                 
-                Queries: {combined_queries}
+                1. EXPERTISE TAGS: 8-12 specific expertise tags based on all categories, subcategories, and transaction patterns
+                2. EXPERTISE SUMMARY: A 2-3 sentence professional summary of their expertise
                 
-                Topics handled: {', '.join(profile['topics'])}
-                Subtopics: {', '.join(profile['subtopics'])}
-                Services: {', '.join(profile['services'])}
+                ADVISOR DATA:
+                - Total Transactions: {comprehensive_data['total_transactions']}
+                - Topics Handled: {', '.join(comprehensive_data['topics_handled'])}
+                - Subtopics: {', '.join(comprehensive_data['subtopics_handled'])}
+                - Services: {', '.join(comprehensive_data['services_provided'])}
+                - Case Types: {', '.join(comprehensive_data['case_types'])}
+                - Sample Queries: {comprehensive_data['all_queries'][:5]}  # First 5 queries
+                - Performance: {comprehensive_data['performance_metrics']['success_rate']:.1f}% success rate, {comprehensive_data['performance_metrics']['avg_resolution_hours']:.1f} avg hours
                 
-                Return only the expertise tags as a comma-separated list, no explanations.
+                RESPONSE FORMAT:
+                EXPERTISE_TAGS: tag1, tag2, tag3, tag4, tag5, tag6, tag7, tag8
+                EXPERTISE_SUMMARY: [2-3 sentence professional summary]
+                
+                Focus on specific technical areas, industry expertise, and problem-solving patterns.
                 """
                 
-                response = await self.ai_service.generate_text(expertise_prompt)
-                return response.strip()
+                response = await self.ai_service.generate_text(comprehensive_prompt)
+                
+                # Parse the response
+                lines = response.strip().split('\n')
+                expertise_tags = ""
+                expertise_summary = ""
+                
+                for line in lines:
+                    if line.startswith('EXPERTISE_TAGS:'):
+                        expertise_tags = line.replace('EXPERTISE_TAGS:', '').strip()
+                    elif line.startswith('EXPERTISE_SUMMARY:'):
+                        expertise_summary = line.replace('EXPERTISE_SUMMARY:', '').strip()
+                
+                # Store the summary for later use
+                profile['ai_generated_summary'] = expertise_summary
+                
+                return expertise_tags if expertise_tags else self._fallback_expertise_tags(profile)
             else:
                 # Fallback to manual tag generation
-                all_topics = list(profile['topics']) + list(profile['subtopics']) + list(profile['services'])
-                return ','.join(all_topics[:8])
+                return self._fallback_expertise_tags(profile)
                 
         except Exception as e:
             logger.error(f"Error generating AI expertise tags: {e}")
-            # Fallback to manual tags
-            all_topics = list(profile['topics']) + list(profile['subtopics']) + list(profile['services'])
-            return ','.join(all_topics[:8])
+            return self._fallback_expertise_tags(profile)
+    
+    def _fallback_expertise_tags(self, profile: Dict) -> str:
+        """Fallback expertise tag generation"""
+        all_topics = list(profile['topics']) + list(profile['subtopics']) + list(profile['services']) + list(profile['case_types'])
+        return ','.join(all_topics[:10])
     
     def _generate_comprehensive_profile_summary(self, profile: Dict) -> str:
         """Generate comprehensive profile summary"""

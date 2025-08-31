@@ -8,14 +8,12 @@ import shutil
 import pandas as pd
 
 from ..models.database import get_db
-from ..services.excel_processor import ExcelProcessor
 from ..services.ml_service import MLAdvisorService
 from ..services.matching_service import MatchingService
 
 router = APIRouter(prefix="/api/v1", tags=["excel-upload"])
 
 # Initialize services
-excel_processor = ExcelProcessor()
 ml_service = MLAdvisorService()
 matching_service = MatchingService()
 
@@ -36,21 +34,16 @@ async def upload_excel_file(
             tmp_file_path = tmp_file.name
         
         try:
-            # Process Excel data and generate advisor profiles
-            result = excel_processor.process_excel_and_generate_profiles(tmp_file_path, db)
-            
-            # Train comprehensive ML model on the processed data
-            ml_result = await ml_service._train_comprehensive_model_with_ai(pd.read_excel(tmp_file_path), db)
+            # Process Excel data using the new comprehensive ML service
+            result = await ml_service.process_excel_data(tmp_file_path, db)
             
             return {
                 "success": True,
                 "message": result['message'],
-                "cases_created": result['cases_created'],
-                "advisors_created": result['advisors_created'],
-                "assignments_created": result['assignments_created'],
-                "model_accuracy": ml_result.get('accuracy', 0.0),
-                "model_name": ml_result.get('model_name', 'Unknown'),
-                "model_cv_score": ml_result.get('cv_mean', 0.0)
+                "cases_processed": result['cases_processed'],
+                "advisors_updated": result['advisors_updated'],
+                "model_accuracy": result['model_accuracy'],
+                "model_name": "AI Gateway Enhanced Advisor Matching"
             }
             
         finally:

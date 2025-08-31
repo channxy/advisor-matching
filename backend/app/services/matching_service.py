@@ -78,22 +78,41 @@ class MatchingService:
         return min(score, 100.0), insights
     
     def _calculate_topic_match(self, case: Case, advisor: Advisor, db: Session) -> float:
-        """Calculate topic/domain matching score"""
-        # Get advisor's tags
-        advisor_tags = db.query(Tag).filter(Tag.advisor_id == advisor.id).all()
-        advisor_tag_names = [tag.tag_name.lower() for tag in advisor_tags]
+        """Step 8: Calculate topic/domain matching score using expertise tags"""
+        # Use advisor's expertise tags from the advisor table
+        advisor_expertise_tags = []
+        if advisor.expertise_tags:
+            advisor_expertise_tags = [tag.strip().lower() for tag in advisor.expertise_tags.split(',') if tag.strip()]
         
-        # Check if case topic/subtopic matches advisor tags
-        case_text = f"{case.topic} {case.subtopic}".lower()
+        # Also get tags from Tag table if available
+        db_tags = db.query(Tag).filter(Tag.advisor_id == advisor.id).all()
+        db_tag_names = [tag.tag_name.lower() for tag in db_tags]
         
+        # Combine all tags
+        all_advisor_tags = list(set(advisor_expertise_tags + db_tag_names))
+        
+        if not all_advisor_tags:
+            return 50.0  # Default score if no tags
+        
+        # Create comprehensive case text for matching
+        case_text = f"{case.topic} {case.subtopic} {case.query}".lower()
+        
+        # Calculate matches
         matches = 0
-        for tag in advisor_tag_names:
+        for tag in all_advisor_tags:
+            # Check for exact matches and partial matches
             if tag in case_text or any(word in case_text for word in tag.split()):
                 matches += 1
         
-        if advisor_tag_names:
-            return min(matches / len(advisor_tag_names) * 100, 100)
-        return 50.0  # Default score if no tags
+        # Calculate score based on matches
+        match_percentage = (matches / len(all_advisor_tags)) * 100
+        
+        # Boost score for exact matches
+        exact_matches = sum(1 for tag in all_advisor_tags if tag in case_text)
+        if exact_matches > 0:
+            match_percentage += (exact_matches / len(all_advisor_tags)) * 20
+        
+        return min(match_percentage, 100.0)
     
     def _calculate_complexity_match(self, case: Case, advisor: Advisor) -> float:
         """Calculate complexity preference matching"""
