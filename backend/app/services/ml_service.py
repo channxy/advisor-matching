@@ -65,6 +65,10 @@ class MLAdvisorService:
                     if advisor_id not in advisor_profiles:
                         advisor_profiles[advisor_id] = {
                             'advisor_id': advisor_id,
+                            'advisor_name': row.get('Current Case Owner', advisor_id),  # Use advisor_id as name if not available
+                            'department': row.get('Business Function', row.get('department', '')),
+                            'business_function': row.get('Business Function', row.get('business_function', '')),
+                            'country': row.get('Country', row.get('country', '')),
                             'cases': [],
                             'topics': set(),
                             'subtopics': set(),
@@ -106,7 +110,11 @@ class MLAdvisorService:
     
     def _create_case_from_row(self, row: pd.Series, db: Session) -> Case:
         """Create a case from Excel row data"""
-        case_id = str(row.get('Case ID', row.get('case_id', f'CASE_{datetime.now().timestamp()}')))
+        case_id = str(row.get('Case ID', row.get('case_id', '')))
+        
+        # Generate unique case ID if not provided
+        if not case_id or case_id == '' or case_id == 'nan':
+            case_id = f'CASE_{datetime.now().timestamp()}_{row.name}'
         
         # Check if case already exists
         existing_case = db.query(Case).filter(Case.case_id == case_id).first()
@@ -148,16 +156,34 @@ class MLAdvisorService:
             # Get or create advisor
             advisor = db.query(Advisor).filter(Advisor.advisor_id == advisor_id).first()
             if not advisor:
+                # Create new advisor with basic info
                 advisor = Advisor(
                     advisor_id=advisor_id,
-                    advisor_name=advisor_id,
-                    department='',
-                    business_function='',
-                    country=''
+                    advisor_name=profile_data.get('advisor_name', advisor_id),
+                    department=profile_data.get('department', ''),
+                    business_function=profile_data.get('business_function', ''),
+                    country=profile_data.get('country', ''),
+                    total_cases_handled=0,
+                    success_rate=0.0,
+                    avg_resolution_time=0.0,
+                    complexity_preference=50.0,
+                    expertise_tags='',
+                    profile_summary=''
                 )
                 db.add(advisor)
+                db.flush()  # Get the ID without committing
             
-            # Update metrics
+            # Update advisor name and basic info if not set
+            if not advisor.advisor_name or advisor.advisor_name == advisor_id:
+                advisor.advisor_name = profile_data.get('advisor_name', advisor_id)
+            if not advisor.department:
+                advisor.department = profile_data.get('department', '')
+            if not advisor.business_function:
+                advisor.business_function = profile_data.get('business_function', '')
+            if not advisor.country:
+                advisor.country = profile_data.get('country', '')
+            
+            # Update metrics (accumulate for existing advisors)
             advisor.total_cases_handled = profile_data['total_count']
             advisor.success_rate = (profile_data['success_count'] / profile_data['total_count'] * 100) if profile_data['total_count'] > 0 else 0
             
@@ -167,16 +193,31 @@ class MLAdvisorService:
             if profile_data['complexities']:
                 advisor.complexity_preference = np.mean(profile_data['complexities'])
             
-            # Update expertise tags
+            # Update expertise tags (merge with existing)
+            current_tags = set()
+            if advisor.expertise_tags:
+                current_tags = set(tag.strip() for tag in advisor.expertise_tags.split(',') if tag.strip())
+            
+            # Add new topics and subtopics
             topics = list(profile_data['topics'])
             subtopics = list(profile_data['subtopics'])
-            expertise_areas = topics + subtopics
-            advisor.expertise_tags = ','.join(expertise_areas[:10])  # Limit to 10 tags
+            new_tags = topics + subtopics
+            
+            for tag in new_tags:
+                if tag and tag.strip():
+                    current_tags.add(tag.strip())
+            
+            # Limit to 10 tags and update
+            advisor.expertise_tags = ','.join(list(current_tags)[:10])
             
             # Generate profile summary
             advisor.profile_summary = self._generate_profile_summary(profile_data)
             
-            db.commit()
+            # Update the advisor record
+            db.merge(advisor)
+        
+        # Commit all changes at once
+        db.commit()
     
     def _generate_profile_summary(self, profile_data: Dict) -> str:
         """Generate advisor profile summary"""

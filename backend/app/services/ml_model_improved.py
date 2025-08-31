@@ -836,7 +836,7 @@ class AdvisorMatchingML:
                     'department': advisor.department,
                     'business_function': advisor.business_function,
                     'country': advisor.country,
-                    'expertise_areas': advisor.expertise_tags.split(',') if advisor.expertise_tags else [],
+                    'expertise_tags': advisor.expertise_tags.split(',') if advisor.expertise_tags else [],
                     'total_cases_handled': advisor.total_cases_handled,
                     'successful_cases': int(advisor.total_cases_handled * advisor.success_rate / 100) if advisor.success_rate else 0
                 }
