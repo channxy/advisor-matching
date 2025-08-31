@@ -391,6 +391,9 @@ class AdvisorMatchingML:
                 return existing_case
             
             # Create new case
+            # Import CaseStatus enum
+            from ..models.case import CaseStatus
+            
             case = Case(
                 case_id=case_id,
                 topic=self._get_value_from_row(row, column_mapping, 'topic'),
@@ -402,7 +405,7 @@ class AdvisorMatchingML:
                 business_function=self._get_value_from_row(row, column_mapping, 'business_function'),
                 country=self._get_value_from_row(row, column_mapping, 'country'),
                 complexity=self._calculate_complexity(row, column_mapping),
-                status=self._determine_status(row, column_mapping)
+                status=CaseStatus.RESOLVED if self._determine_status(row, column_mapping) == 'resolved' else CaseStatus.PENDING
             )
             
             # Set dates
@@ -492,8 +495,15 @@ class AdvisorMatchingML:
                 )
                 db.add(advisor)
             
-            # Update expertise areas
-            current_expertise = set(advisor.expertise_areas or [])
+            # Update expertise tags
+            current_expertise = set()
+            if advisor.expertise_tags:
+                try:
+                    # Parse existing expertise tags
+                    existing_tags = advisor.expertise_tags.split(',')
+                    current_expertise = set(tag.strip() for tag in existing_tags if tag.strip())
+                except:
+                    current_expertise = set()
             
             # Add topic and subtopic
             topic = self._get_value_from_row(row, column_mapping, 'topic')
@@ -507,7 +517,8 @@ class AdvisorMatchingML:
             if business_function:
                 current_expertise.add(business_function)
             
-            advisor.expertise_areas = list(current_expertise)[:10]  # Limit to 10
+            # Store as comma-separated string
+            advisor.expertise_tags = ','.join(list(current_expertise)[:10])  # Limit to 10
             
             # Update department and business function if not set
             if not advisor.department:
@@ -516,6 +527,13 @@ class AdvisorMatchingML:
                 advisor.business_function = self._get_value_from_row(row, column_mapping, 'business_function')
             if not advisor.country:
                 advisor.country = self._get_value_from_row(row, column_mapping, 'country')
+            
+            # Update success rate based on status
+            status = self._determine_status(row, column_mapping)
+            if status == 'resolved':
+                advisor.success_rate = min(100.0, advisor.success_rate + 10.0)  # Increment success rate
+            else:
+                advisor.success_rate = max(0.0, advisor.success_rate - 5.0)  # Decrement for pending cases
             
             return advisor
             
@@ -528,11 +546,11 @@ class AdvisorMatchingML:
         try:
             advisor = db.query(Advisor).filter(Advisor.advisor_id == advisor_id).first()
             if advisor:
+                from ..models.assignment import Assignment, AssignmentStatus
                 assignment = Assignment(
                     case_id=case.id,
                     advisor_id=advisor.id,
-                    assigned_at=datetime.now(),
-                    status='assigned'
+                    status=AssignmentStatus.ACCEPTED if case.status.value == 'resolved' else AssignmentStatus.PENDING
                 )
                 db.add(assignment)
         except Exception as e:
@@ -814,13 +832,13 @@ class AdvisorMatchingML:
             advisor_dict = {}
             for advisor in advisors:
                 advisor_dict[advisor.advisor_id] = {
-                    'name': advisor.name,
+                    'name': advisor.advisor_name,
                     'department': advisor.department,
                     'business_function': advisor.business_function,
                     'country': advisor.country,
-                    'expertise_areas': advisor.expertise_areas,
+                    'expertise_areas': advisor.expertise_tags.split(',') if advisor.expertise_tags else [],
                     'total_cases_handled': advisor.total_cases_handled,
-                    'successful_cases': advisor.successful_cases
+                    'successful_cases': int(advisor.total_cases_handled * advisor.success_rate / 100) if advisor.success_rate else 0
                 }
             
             return advisor_dict
