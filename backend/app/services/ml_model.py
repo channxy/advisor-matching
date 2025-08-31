@@ -492,8 +492,15 @@ class AdvisorMatchingML:
                 )
                 db.add(advisor)
             
-            # Update expertise areas
-            current_expertise = set(advisor.expertise_areas or [])
+            # Update expertise tags
+            current_expertise = set()
+            if advisor.expertise_tags:
+                try:
+                    # Parse existing expertise tags
+                    existing_tags = advisor.expertise_tags.split(',')
+                    current_expertise = set(tag.strip() for tag in existing_tags if tag.strip())
+                except:
+                    current_expertise = set()
             
             # Add topic and subtopic
             topic = self._get_value_from_row(row, column_mapping, 'topic')
@@ -507,7 +514,8 @@ class AdvisorMatchingML:
             if business_function:
                 current_expertise.add(business_function)
             
-            advisor.expertise_areas = list(current_expertise)[:10]  # Limit to 10
+            # Store as comma-separated string
+            advisor.expertise_tags = ','.join(list(current_expertise)[:10])  # Limit to 10
             
             # Update department and business function if not set
             if not advisor.department:
@@ -814,13 +822,13 @@ class AdvisorMatchingML:
             advisor_dict = {}
             for advisor in advisors:
                 advisor_dict[advisor.advisor_id] = {
-                    'name': advisor.name,
+                    'name': advisor.advisor_name,
                     'department': advisor.department,
                     'business_function': advisor.business_function,
                     'country': advisor.country,
-                    'expertise_areas': advisor.expertise_areas,
+                    'expertise_areas': advisor.expertise_tags.split(',') if advisor.expertise_tags else [],
                     'total_cases_handled': advisor.total_cases_handled,
-                    'successful_cases': advisor.successful_cases
+                    'successful_cases': int(advisor.total_cases_handled * advisor.success_rate / 100) if advisor.success_rate else 0
                 }
             
             return advisor_dict

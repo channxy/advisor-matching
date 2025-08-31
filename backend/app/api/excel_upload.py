@@ -107,7 +107,7 @@ async def get_advisor_recommendations(
                 'advisor_id': rec['advisor_id'],
                 'advisor_name': rec['advisor_name'],
                 'confidence': rec['similarity_score'],
-                'expertise_tags': rec.get('expertise_areas', []),
+                'expertise_tags': rec.get('expertise_tags', ''),
                 'success_rate': 0.8,  # Default success rate
                 'total_cases': rec['query_count'],
                 'matching_reasons': rec.get('reasons', []),
