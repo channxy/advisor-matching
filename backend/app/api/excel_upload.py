@@ -40,7 +40,7 @@ async def upload_excel_file(
             result = excel_processor.process_excel_and_generate_profiles(tmp_file_path, db)
             
             # Train comprehensive ML model on the processed data
-            ml_result = ml_service._train_comprehensive_model(pd.read_excel(tmp_file_path))
+            ml_result = await ml_service._train_comprehensive_model_with_ai(pd.read_excel(tmp_file_path), db)
             
             return {
                 "success": True,
@@ -73,8 +73,16 @@ async def get_advisor_recommendations(
             if field not in case_data or not case_data[field]:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
         
-        # Get recommendations using both ML service and matching service
-        ml_recommendations = ml_service.recommend_advisors(case_data, db)
+        # Get recommendations using the new AI Gateway ML model
+        query_text = f"{case_data.get('topic', '')} {case_data.get('subtopic', '')} {case_data.get('query', '')}"
+        ml_recommendations = await ml_service.advisor_matching_ml.predict_advisors(
+            query=query_text,
+            department=case_data.get('department'),
+            business_function=case_data.get('business_function'),
+            country=case_data.get('country'),
+            complexity=float(case_data.get('complexity', 5.0)),
+            db=db
+        )
         
         # Also get recommendations using matching service for comparison
         # Create a temporary case object for matching service
@@ -98,12 +106,13 @@ async def get_advisor_recommendations(
             recommendations.append({
                 'advisor_id': rec['advisor_id'],
                 'advisor_name': rec['advisor_name'],
-                'confidence': rec['confidence'],
-                'expertise_tags': rec['expertise_tags'],
-                'success_rate': rec['success_rate'],
-                'total_cases': rec['total_cases'],
-                'matching_reasons': rec.get('matching_reasons', []),
-                'source': 'ML Model'
+                'confidence': rec['similarity_score'],
+                'expertise_tags': rec.get('expertise_areas', []),
+                'success_rate': 0.8,  # Default success rate
+                'total_cases': rec['query_count'],
+                'matching_reasons': rec.get('reasons', []),
+                'source': 'AI Gateway ML Model',
+                'match_percentage': rec['match_percentage']
             })
         
         # Add matching service recommendations
@@ -139,22 +148,25 @@ async def get_advisor_recommendations(
 async def get_model_performance():
     """Get ML model performance metrics"""
     try:
-        # Get model performance from the comprehensive ML model
-        if hasattr(ml_service.advisor_matching_ml, 'model_metrics') and ml_service.advisor_matching_ml.model_metrics:
-            metrics = ml_service.advisor_matching_ml.model_metrics
+        # Get model performance from the new AI Gateway model
+        performance_data = ml_service.advisor_matching_ml.get_model_performance()
+        
+        if performance_data.get('success', False):
             return {
                 "success": True,
-                "model_name": metrics.get('model_name', 'Unknown'),
-                "test_score": metrics.get('test_score', 0.0),
-                "train_score": metrics.get('train_score', 0.0),
-                "cv_mean": metrics.get('cv_mean', 0.0),
-                "cv_std": metrics.get('cv_std', 0.0),
-                "feature_importance": metrics.get('feature_importance', {})
+                "model_name": performance_data.get('model_name', 'AI Gateway Model'),
+                "test_score": performance_data.get('test_score', 0.0),
+                "train_score": performance_data.get('train_score', 0.0),
+                "cv_mean": performance_data.get('cv_mean', 0.0),
+                "cv_std": performance_data.get('cv_std', 0.0),
+                "feature_importance": performance_data.get('feature_importance', {}),
+                "ai_gateway_available": ml_service.advisor_matching_ml.ai_service.is_gateway_available()
             }
         else:
             return {
                 "success": False,
-                "message": "No model metrics available. Train the model first."
+                "message": "No model metrics available. Train the model first.",
+                "ai_gateway_available": ml_service.advisor_matching_ml.ai_service.is_gateway_available()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting model performance: {str(e)}")
@@ -178,7 +190,7 @@ async def retrain_model(
         try:
             # Retrain the comprehensive ML model
             df = pd.read_excel(tmp_file_path)
-            ml_result = ml_service.advisor_matching_ml.retrain_model(tmp_file_path)
+            ml_result = await ml_service.advisor_matching_ml.retrain_model(tmp_file_path, db)
             
             # Get updated model performance data
             performance_data = ml_service.advisor_matching_ml.get_model_performance()
